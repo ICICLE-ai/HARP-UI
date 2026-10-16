@@ -10,6 +10,7 @@ import io
 import os
 import secrets
 from contextlib import asynccontextmanager
+from urllib.parse import urlsplit
 
 from fastapi import Body, Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse
@@ -26,20 +27,35 @@ PROFILING_PAGE = os.environ.get(
     os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "profiling.html"))
 MAX_PROFILE_ROWS = 5000
 # That page is a single file with inline script/style and Google Fonts.
-PROFILING_CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline'; "
-                 "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-                 "font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; "
-                 "frame-ancestors 'none'; form-action 'self'; base-uri 'none'")
 SESSION_COOKIE = "harp_session"
 LOCAL_CLIENTS = {"127.0.0.1", "::1", "localhost"}
-SECURITY_HEADERS = {
-    "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
-    "Referrer-Policy": "no-referrer",
-    "Content-Security-Policy": ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
-                                "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; "
-                                "form-action 'self'; base-uri 'none'"),
-}
+
+
+def _origins(value):
+    """Normalize an exact HTTP(S) origin allowlist for CSP and portal auth."""
+    values = value if isinstance(value, (list, tuple)) else str(value or "").split(",")
+    out = []
+    for raw in values:
+        raw = str(raw).strip().rstrip("/")
+        if not raw:
+            continue
+        parsed = urlsplit(raw)
+        if (parsed.scheme not in {"http", "https"} or not parsed.hostname or
+                parsed.path or parsed.query or parsed.fragment or parsed.username or parsed.password):
+            raise ValueError(f"invalid HARP portal origin {raw!r}; use an exact https://host[:port] origin")
+        origin = f"{parsed.scheme}://{parsed.hostname}"
+        if parsed.port:
+            origin += f":{parsed.port}"
+        if origin not in out:
+            out.append(origin)
+    return out
+
+
+def _same_site(value):
+    value = str(value or "strict").strip().lower()
+    if value not in {"strict", "lax", "none"}:
+        raise ValueError("HARP_SESSION_SAME_SITE must be strict, lax or none")
+    return value
 
 
 def is_https(request: Request) -> bool:
@@ -52,9 +68,32 @@ def is_local(request: Request) -> bool:
     return bool(request.client) and request.client.host in LOCAL_CLIENTS
 
 
-def create_app(data_dir=None, poll_interval=None, login=TapisGateway.login, start_poller=True, build_python=None):
+def create_app(data_dir=None, poll_interval=None, login=TapisGateway.login, start_poller=True, build_python=None,
+               portal_origins=None, tapis_base_url=None, session_same_site=None):
     data_dir = data_dir or os.environ.get("HARP_SERVER_DATA", os.path.expanduser("~/.harp_server"))
     poll_interval = poll_interval or int(os.environ.get("HARP_POLL_SECONDS", "15"))
+    portal_origins = _origins(os.environ.get("HARP_PORTAL_ORIGINS", "")
+                              if portal_origins is None else portal_origins)
+    tapis_base_url = (tapis_base_url or os.environ.get("HARP_TAPIS_BASE_URL") or
+                      "https://icicleai.tapis.io").strip().rstrip("/")
+    if not tapis_base_url.startswith("https://"):
+        raise ValueError("HARP_TAPIS_BASE_URL must be an https URL")
+    session_same_site = _same_site(os.environ.get("HARP_SESSION_SAME_SITE", "strict")
+                                   if session_same_site is None else session_same_site)
+    frame_ancestors = "'self' " + " ".join(portal_origins) if portal_origins else "'none'"
+    response_security_headers = {
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "no-referrer",
+        "Content-Security-Policy": ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+                                    f"img-src 'self' data:; connect-src 'self'; frame-ancestors {frame_ancestors}; "
+                                    "form-action 'self'; base-uri 'none'"),
+    }
+    if not portal_origins:
+        response_security_headers["X-Frame-Options"] = "DENY"
+    profiling_csp = ("default-src 'self'; script-src 'self' 'unsafe-inline'; "
+                     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+                     "font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; "
+                     f"frame-ancestors {frame_ancestors}; form-action 'self'; base-uri 'none'")
     manager = CampaignManager(CampaignStore(data_dir), poll_interval=poll_interval)
     builds = BuildManager(data_dir, python=build_python)
     sessions = {}  # session token -> TapisGateway
@@ -75,7 +114,7 @@ def create_app(data_dir=None, poll_interval=None, login=TapisGateway.login, star
     @app.middleware("http")
     async def security_headers(request: Request, call_next):
         response = await call_next(request)
-        for name, value in SECURITY_HEADERS.items():
+        for name, value in response_security_headers.items():
             if name not in response.headers:  # a route may set a stricter/looser one
                 response.headers[name] = value
         if is_https(request):
@@ -109,26 +148,24 @@ def create_app(data_dir=None, poll_interval=None, login=TapisGateway.login, star
     # ------------------------------------------------------------ auth
     @app.post("/api/login")
     def login_route(request: Request, response: Response, body: dict = Body(...)):
-        """The page sends the TAPIS credentials; the server gets the token
-        with tapipy and keeps it. The browser only receives a session cookie."""
+        """Validate a TAPIS JWT and keep it behind an HttpOnly HARP session."""
         if not (is_https(request) or is_local(request) or allow_http):
-            raise HTTPException(403, "log in over https:// - credentials are never accepted over plain http")
+            raise HTTPException(403, "log in over https:// - tokens are never accepted over plain http")
         base_url = (body.get("base_url") or "").strip().rstrip("/")
         if not base_url.startswith("https://"):
-            raise HTTPException(400, "base_url must be an https TAPIS tenant URL, e.g. https://icicle.tapis.io")
-        username, password = (body.get("username") or "").strip(), body.get("password") or ""
+            raise HTTPException(400, "base_url must be an https TAPIS tenant URL, e.g. https://icicleai.tapis.io")
         access_token = (body.get("access_token") or "").strip()
-        if not access_token and not (username and password):
-            raise HTTPException(400, "enter your TAPIS username and password (or an access token)")
+        if not access_token:
+            raise HTTPException(400, "enter a TAPIS access token")
         try:
-            gw = login(base_url, username=username or None, password=password or None,
-                       access_token=access_token or None)
+            gw = login(base_url, access_token=access_token)
         except TapisError as e:
             raise HTTPException(401, str(e))
         token = secrets.token_urlsafe(32)
         sessions[token] = gw
         manager.register_gateway(gw)
-        response.set_cookie(SESSION_COOKIE, token, httponly=True, samesite="strict", secure=is_https(request))
+        response.set_cookie(SESSION_COOKIE, token, httponly=True, samesite=session_same_site,
+                            secure=is_https(request))
         return {"username": gw.username, "base_url": gw.base_url, "expires_at": gw.expires_at}
 
     @app.post("/api/logout")
@@ -140,6 +177,17 @@ def create_app(data_dir=None, poll_interval=None, login=TapisGateway.login, star
     @app.get("/api/me")
     def me(gw: TapisGateway = Depends(gateway)):
         return {"username": gw.username, "base_url": gw.base_url, "expires_at": gw.expires_at}
+
+    @app.get("/api/config")
+    def public_config():
+        """Non-secret settings used to bootstrap a TapisUI portal session."""
+        return {"tapis_base_url": tapis_base_url, "portal_origins": portal_origins,
+                "portal_auth": bool(portal_origins), "portal_auth_protocol": 1}
+
+    @app.get("/api/health")
+    @app.get("/healthz")
+    def health():
+        return {"status": "ok"}
 
     # ----------------------------------------------------------- TAPIS browse
     @app.get("/api/tapis/systems")
@@ -418,7 +466,7 @@ def create_app(data_dir=None, poll_interval=None, login=TapisGateway.login, star
     def profiling_page():
         if not os.path.isfile(PROFILING_PAGE):
             raise HTTPException(404, "profiling.html not found")
-        return FileResponse(PROFILING_PAGE, headers={"Content-Security-Policy": PROFILING_CSP})
+        return FileResponse(PROFILING_PAGE, headers={"Content-Security-Policy": profiling_csp})
 
     return app
 

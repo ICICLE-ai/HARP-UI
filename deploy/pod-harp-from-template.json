@@ -1,0 +1,6 @@
+{
+  "pod_id": "harp",
+  "template": "harp:2.0.0",
+  "description": "HARP HPC Application Runtime Predictor",
+  "status_requested": "ON"
+}

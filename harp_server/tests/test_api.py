@@ -39,7 +39,7 @@ def _create(ctx, spec, user="alice"):
 
 
 def _login(client, user="alice"):
-    r = client.post("/api/login", json={"base_url": "https://fake.tapis.io", "username": user, "password": "secret"})
+    r = client.post("/api/login", json={"base_url": "https://fake.tapis.io", "access_token": f"token-{user}"})
     assert r.status_code == 200, r.text
 
 
@@ -52,20 +52,22 @@ def test_requires_login(ctx):
     assert client.post("/api/login", json={"base_url": "http://insecure", "access_token": "token-a"}).status_code == 400
 
 
-def test_login_with_credentials_sets_a_secure_session_cookie_only(ctx):
+def test_login_with_access_token_sets_a_secure_session_cookie_only(ctx):
     client, _, _ = ctx
-    r = client.post("/api/login", json={"base_url": "https://fake.tapis.io", "username": "alice", "password": "secret"})
+    r = client.post("/api/login", json={"base_url": "https://fake.tapis.io", "access_token": "token-alice"})
     assert r.status_code == 200
-    assert set(r.json()) == {"username", "base_url", "expires_at"}  # no token, no password
+    assert set(r.json()) == {"username", "base_url", "expires_at"}  # token stays server-side
     cookie = r.headers["set-cookie"].lower()
     assert "httponly" in cookie and "secure" in cookie and "samesite=strict" in cookie
-    bad = client.post("/api/login", json={"base_url": "https://fake.tapis.io", "username": "alice", "password": "nope"})
+    bad = client.post("/api/login", json={"base_url": "https://fake.tapis.io", "access_token": "forged"})
     assert bad.status_code == 401
     assert client.post("/api/login", json={"base_url": "https://fake.tapis.io"}).status_code == 400
+    credentials = {"base_url": "https://fake.tapis.io", "username": "alice", "password": "secret"}
+    assert client.post("/api/login", json=credentials).status_code == 400
 
 
-def test_credentials_are_refused_over_plain_http_from_other_hosts(ctx):
-    creds = {"base_url": "https://fake.tapis.io", "username": "alice", "password": "secret"}
+def test_tokens_are_refused_over_plain_http_from_other_hosts(ctx):
+    creds = {"base_url": "https://fake.tapis.io", "access_token": "token-alice"}
     remote = TestClient(ctx.app, base_url="http://harp.example.org", client=("203.0.113.7", 50000))
     r = remote.post("/api/login", json=creds)
     assert r.status_code == 403 and "https" in r.json()["detail"]
@@ -82,6 +84,48 @@ def test_security_headers(ctx):
     assert "frame-ancestors 'none'" in r.headers["content-security-policy"]
     assert r.headers["x-frame-options"] == "DENY"
     assert client.get("/api/campaigns").headers["cache-control"] == "no-store"
+
+
+def test_health_and_public_portal_config_do_not_require_login(ctx):
+    client, _, _ = ctx
+    assert client.get("/healthz").json() == {"status": "ok"}
+    assert client.get("/api/health").json() == {"status": "ok"}
+    assert client.get("/api/config").json() == {
+        "tapis_base_url": "https://icicleai.tapis.io",
+        "portal_origins": [],
+        "portal_auth": False,
+        "portal_auth_protocol": 1,
+    }
+
+
+def test_portal_mode_allows_only_configured_frame_ancestors_and_uses_iframe_cookie(tmp_path):
+    def login(base_url, username=None, password=None, access_token=None):
+        if access_token != "token-alice-token-alice-token-alice":
+            raise TapisError("bad token")
+        return FakeGateway("alice")
+
+    app = create_app(data_dir=str(tmp_path), login=login, start_poller=False,
+                     portal_origins=["https://icicleai.tapis.io", "http://localhost:3000/"],
+                     tapis_base_url="https://icicleai.tapis.io/", session_same_site="none")
+    client = TestClient(app, base_url="https://harp.pods.icicleai.tapis.io")
+    page = client.get("/")
+    assert "frame-ancestors 'self' https://icicleai.tapis.io http://localhost:3000" in \
+        page.headers["content-security-policy"]
+    assert "x-frame-options" not in page.headers
+    assert client.get("/api/config").json()["portal_auth"] is True
+    response = client.post("/api/login", json={"base_url": "https://icicleai.tapis.io",
+                                                "access_token": "token-alice-token-alice-token-alice"})
+    assert response.status_code == 200
+    cookie = response.headers["set-cookie"].lower()
+    assert "secure" in cookie and "httponly" in cookie and "samesite=none" in cookie
+
+
+def test_portal_origin_rejects_paths_and_wildcards(tmp_path):
+    with pytest.raises(ValueError, match="portal origin"):
+        create_app(data_dir=str(tmp_path), start_poller=False,
+                   portal_origins=["https://icicleai.tapis.io/path"])
+    with pytest.raises(ValueError, match="portal origin"):
+        create_app(data_dir=str(tmp_path), start_poller=False, portal_origins=["*"])
 
 
 def test_expired_token_logs_out_and_pauses_campaigns(ctx):
@@ -117,6 +161,8 @@ def test_profiling_page_is_served_with_its_own_csp(ctx):
     assert r.status_code == 200 and "Profiling" in r.text
     csp = r.headers["content-security-policy"]
     assert "fonts.googleapis.com" in csp and "'unsafe-inline'" in csp
+    assert 'name="access_token"' in r.text
+    assert 'name="username"' not in r.text and 'name="password"' not in r.text
     assert client.get("/").text == r.text   # the page is the whole UI
     assert "unsafe-inline" not in client.get("/api/me").headers["content-security-policy"].split("script-src")[1].split(";")[0]
 
