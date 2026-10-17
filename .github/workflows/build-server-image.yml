@@ -1,0 +1,81 @@
+name: Build HARP server image
+
+on:
+  pull_request:
+    paths:
+      - "harp_server/**"
+      - "job_runner/**"
+      - "pipeline/**"
+      - "profiling.html"
+      - ".dockerignore"
+      - ".github/workflows/build-server-image.yml"
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Container tag to publish (for example, 2.0.0-rc.1)
+        required: true
+        default: "2.0.0"
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_NAME: harp-ui
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Image name
+        id: image
+        run: |
+          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "name=ghcr.io/${owner}/${IMAGE_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Image tag
+        id: tag
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          MANUAL_TAG: ${{ inputs.image_tag }}
+        run: |
+          if [ "$EVENT_NAME" = "release" ]; then
+            tag="${RELEASE_TAG#v}"
+          elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            tag="$MANUAL_TAG"
+          else
+            tag="pr-${{ github.event.pull_request.number }}"
+          fi
+          if ! echo "$tag" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]*$'; then
+            echo "Invalid container tag: $tag" >&2
+            exit 1
+          fi
+          echo "value=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: docker build -f harp_server/Dockerfile -t "${{ steps.image.outputs.name }}:${{ steps.tag.outputs.value }}" .
+
+      - name: Smoke test
+        run: |
+          docker run --rm -d --name harp-server-test -p 8000:8000 \
+            -e HARP_PORTAL_ORIGINS=https://icicleai.tapis.io \
+            "${{ steps.image.outputs.name }}:${{ steps.tag.outputs.value }}"
+          trap 'docker stop harp-server-test >/dev/null 2>&1 || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8000/healthz; then exit 0; fi
+            sleep 2
+          done
+          docker logs harp-server-test
+          exit 1
+
+      - name: Push
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker push "${{ steps.image.outputs.name }}:${{ steps.tag.outputs.value }}"
+          echo "### Pushed `${{ steps.image.outputs.name }}:${{ steps.tag.outputs.value }}`" >> "$GITHUB_STEP_SUMMARY"
