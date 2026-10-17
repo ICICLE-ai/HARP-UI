@@ -27,12 +27,13 @@ def ctx(tmp_path):
     gateways = {}
 
     def login(base_url, username=None, password=None, access_token=None):
+        username = access_token.removeprefix("token-")
         return gateways.setdefault(username, FakeGateway(username))
 
     app = create_app(data_dir=str(tmp_path), login=login, start_poller=False, build_python=build_python())
     client = TestClient(app, base_url="https://testserver")
-    assert client.post("/api/login", json={"base_url": "https://fake.tapis.io", "username": "alice",
-                                           "password": "x"}).status_code == 200
+    assert client.post("/api/login", json={"base_url": "https://fake.tapis.io",
+                                           "access_token": "token-alice"}).status_code == 200
     return client, app.state.manager, app.state.builds, gateways["alice"]
 
 

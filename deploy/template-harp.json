@@ -1,0 +1,11 @@
+{
+  "template_id": "harp",
+  "description": "HARP HPC Application Runtime Predictor web service",
+  "metatags": [
+    "harp",
+    "hpc",
+    "runtime-prediction",
+    "icicle",
+    "ai4ci"
+  ]
+}

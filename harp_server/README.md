@@ -57,7 +57,7 @@ which is the name the existing **build** phase looks for. Runs that fail go to
    the server, the jobs already in TAPIS keep running, and after you start it again and log in, the server
    picks the sweeps back up. State is kept in `~/.harp_server`.
 
-5. **For other people, run the server over HTTPS** (it receives TAPIS passwords, so it must use HTTPS):
+5. **For other people, run the server over HTTPS** (it receives TAPIS access tokens, so it must use HTTPS):
    ```bash
    pip install -r harp_server/requirements.txt
    cd harp_server
@@ -80,6 +80,13 @@ which is the name the existing **build** phase looks for. Runs that fail go to
    - `HARP_ALLOW_HTTP=1`: accept logins over plain HTTP. Never use this on a shared server.
    - `HARP_SERVER_DATA`: where campaign state is kept. Default `~/.harp_server`.
    - `HARP_POLL_SECONDS`: how often the server polls TAPIS. Default `15`.
+   - `HARP_TAPIS_BASE_URL`: tenant used for TapisUI token handoff. Default `https://icicleai.tapis.io`.
+   - `HARP_PORTAL_ORIGINS`: exact comma-separated TapisUI origins allowed to frame HARP and hand off a token.
+     When unset, framing remains disabled.
+   - `HARP_SESSION_SAME_SITE`: session-cookie policy (`strict`, `lax` or `none`). Use `none` for the hosted iframe.
+
+   To deploy this server as an ICICLE Tapis Pod, including its persistent volume and TapisUI authentication
+   handshake, follow [`deploy/README.md`](../deploy/README.md).
 
 ## Using the UI
 
@@ -99,13 +106,18 @@ submitted sweep is one campaign: the server's record of its TAPIS jobs and its r
 training sets; where a build runs; how models are scored.
 
 **Each user sees only their own work.** Sweeps, jobs, profiled data and builds belong to the TAPIS user *and*
-tenant that created them (`alice@icicle.tapis.io`); everything is read through that user's own TAPIS token, and the
+tenant that created them (`alice@icicleai.tapis.io`); everything is read through that user's own TAPIS token, and the
 plan and allocations the page keeps in the browser are kept per user too.
 
-Log in with your TAPIS tenant (for example `https://icicle.tapis.io`) and your TAPIS username and password. The
-page sends them over HTTPS to this server, which gets a token with `tapipy`, drops the password straight away and
-keeps the token on the server. The browser only gets a session cookie that JavaScript cannot read. When the token
-expires, running sweeps pause (`WAITING_FOR_LOGIN`) and resume as soon as you log in again.
+For direct, standalone use, paste a current TAPIS access token (JWT) for your tenant. HARP validates it with TAPIS,
+keeps it on the server, immediately clears the form, and gives the browser only a session cookie that JavaScript
+cannot read. HARP does not accept TAPIS usernames or passwords. When the token expires, running sweeps pause
+(`WAITING_FOR_LOGIN`) and resume as soon as you provide a fresh token.
+
+When HARP is opened inside the ICICLE TapisUI, there is no second login form: the iframe requests the access token
+from its exact parent origin with `postMessage`, the server validates it through `tapipy`, and then creates the same
+HttpOnly session. The token is never put in the iframe URL or browser storage. The portal handshake runs before the
+fallback form is displayed, so the token screen normally never appears inside TapisUI.
 
 **Runs done while a job runs.** The job runner rewrites `harp_progress.json` (runs done, failed, total,
 current run) in the job's output folder after every run. While a job is RUNNING, the server asks TAPIS for the
@@ -145,6 +157,7 @@ server finds it (it is not listed as an app to profile). For builds on this comp
 | Route | Used for |
 |---|---|
 | `POST /api/login`, `POST /api/logout`, `GET /api/me` | Session (TAPIS token kept on the server). |
+| `GET /api/config`, `GET /api/health`, `GET /healthz` | Public portal bootstrap settings and Pod health checks. |
 | `GET /api/tapis/apps` | Your TAPIS apps with their sweep parameters (from the app notes). |
 | `GET /api/tapis/exec-systems` | Systems you can run on, with their queues and limits (`batchLogicalQueues`). |
 | `GET /api/tapis/systems` | Every system, for the results folder (storage-only systems too). |

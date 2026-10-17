@@ -685,16 +685,17 @@ select:focus,input.ti:focus{outline:none;border-color:var(--teal)}
 <body>
 <section class="main"><div class="wrap-p">
   <div class="card2 login" id="loginPanel" hidden>
-    <h3>Log in to TAPIS</h3>
-    <p class="sub">Lists the apps and systems you can use.</p>
-    <form id="loginForm">
+    <h3>Connect to TAPIS</h3>
+    <p class="sub">HARP uses your existing TAPIS access token to list the apps and systems you can use.</p>
+    <p class="sub" id="portalLoginStatus" role="status" hidden></p>
+    <form id="loginForm" hidden>
       <div class="field"><label class="lbl" for="lgTenant">Tenant</label>
-        <input class="ti" id="lgTenant" name="base_url" value="https://icicle.tapis.io" required></div>
-      <div class="field"><label class="lbl" for="lgUser">Username</label>
-        <input class="ti" id="lgUser" name="username" autocomplete="username" required></div>
-      <div class="field"><label class="lbl" for="lgPass">Password</label>
-        <input class="ti" id="lgPass" name="password" type="password" autocomplete="current-password" required></div>
-      <button class="btnx" type="submit">Log in</button>
+        <input class="ti" id="lgTenant" name="base_url" value="https://icicleai.tapis.io" required></div>
+      <div class="field"><label class="lbl" for="lgToken">TAPIS access token (JWT)</label>
+        <input class="ti" id="lgToken" name="access_token" type="password" autocomplete="off"
+          autocapitalize="none" spellcheck="false" required></div>
+      <p class="sub">The token is validated by TAPIS, kept on the HARP server, and cleared from this form immediately.</p>
+      <button class="btnx" type="submit">Use access token</button>
       <p class="loginerr" id="loginErr" role="alert"></p>
     </form>
   </div>
@@ -1911,10 +1912,76 @@ document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && helpBtn)
 addEventListener('scroll', closeHelp, {passive: true});
 
 /* ================================================================= login */
+const PORTAL_AUTH_REQUEST = 'harp:portal-auth:request';
+const PORTAL_AUTH_RESPONSE = 'harp:portal-auth:response';
+const PORTAL_AUTH_VERSION = 1;
+
 function showLogin(msg){
   clearTimeout(jobsTimer); clearTimeout(badgeTimer);
   $('loginPanel').hidden = false; $('appView').hidden = true;
+  $('portalLoginStatus').hidden = true; $('loginForm').hidden = false;
   $('loginErr').textContent = msg || '';
+}
+function portalRequestId(){
+  if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+  const bytes = new Uint8Array(16); window.crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+}
+async function loginFromPortal(){
+  if (window.self === window.top) return null;
+  const cfg = await api('/api/config');
+  const origins = Array.isArray(cfg.portal_origins) ? cfg.portal_origins : [];
+  if (!cfg.portal_auth || !origins.length) return null;
+  $('lgTenant').value = cfg.tapis_base_url;
+  $('portalLoginStatus').hidden = false;
+  $('portalLoginStatus').textContent = 'Signing in with your ICICLE portal session…';
+  const requestId = portalRequestId();
+  return new Promise((resolve, reject) => {
+    let settled = false, authReceived = false, retry;
+    const finish = (fn, value) => {
+      if (settled) return;
+      settled = true; clearTimeout(timer); clearInterval(retry);
+      removeEventListener('message', onMessage); fn(value);
+    };
+    const onMessage = event => {
+      const d = event.data;
+      if (authReceived || !origins.includes(event.origin) || event.source !== window.parent || !d ||
+          d.type !== PORTAL_AUTH_RESPONSE || d.version !== PORTAL_AUTH_VERSION ||
+          d.requestId !== requestId || typeof d.accessToken !== 'string' || d.accessToken.length < 32) return;
+      authReceived = true; clearInterval(retry);
+      $('portalLoginStatus').textContent = 'Creating your HARP session…';
+      api('/api/login', {method: 'POST', body: {base_url: cfg.tapis_base_url, access_token: d.accessToken}})
+        .then(me => finish(resolve, me)).catch(err => finish(reject, err));
+    };
+    const timer = setTimeout(() => finish(reject, new Error(
+      'Timed out waiting for TapisUI. You can paste a TAPIS access token below.')), 15000);
+    addEventListener('message', onMessage);
+    const request = {type: PORTAL_AUTH_REQUEST, version: PORTAL_AUTH_VERSION, requestId};
+    const sendRequest = () => origins.forEach(origin => window.parent.postMessage(request, origin));
+    sendRequest(); retry = setInterval(sendRequest, 1000);
+  });
+}
+async function showLoginOrUsePortal(msg){
+  clearTimeout(jobsTimer); clearTimeout(badgeTimer);
+  $('loginPanel').hidden = true; $('loginForm').hidden = true; $('appView').hidden = true;
+  let progressTimer;
+  if (window.self !== window.top) {
+    progressTimer = setTimeout(() => {
+      $('portalLoginStatus').hidden = false;
+      $('portalLoginStatus').textContent = 'Signing in with your ICICLE portal session…';
+      $('loginPanel').hidden = false;
+    }, 500);
+  }
+  try {
+    const me = await loginFromPortal();
+    clearTimeout(progressTimer);
+    if (me) return showApp(me);
+  } catch (e) {
+    clearTimeout(progressTimer);
+    return showLogin(e.message);
+  }
+  clearTimeout(progressTimer);
+  showLogin(msg);
 }
 async function showApp(me){
   USERKEY = ':' + me.username + '@' + me.base_url.replace(/^https?:\/\//, ''); ME_USER = me.username;
@@ -1925,7 +1992,7 @@ async function showApp(me){
   $('loginPanel').hidden = true; $('appView').hidden = false;
   $('appSel').innerHTML = '<option>Loading your TAPIS apps…</option>'; $('appSel').disabled = true;
   try { await Promise.all([loadApps(), loadSystems()]); }
-  catch (e) { if (e.status === 401) return showLogin('Session expired. Log in again.');
+  catch (e) { if (e.status === 401) return showLoginOrUsePortal('Session expired. Signing in again…');
               $('appMeta').textContent = 'Could not load your apps: ' + e.message; return; }
   renderApps(); renderPlan();
   const first = APPS.find(a => a.command) || APPS[0]; if (first && !app) pickApp(first.id);
@@ -1938,11 +2005,11 @@ $('loginForm').addEventListener('submit', async ev => {
   const f = new FormData(ev.target), btn = ev.target.querySelector('button');
   btn.disabled = true; $('loginErr').textContent = '';
   try { showApp(await api('/api/login', {method: 'POST', body: {
-          base_url: f.get('base_url').trim().replace(/\/+$/, ''), username: f.get('username').trim(), password: f.get('password')}})); }
+          base_url: f.get('base_url').trim().replace(/\/+$/, ''), access_token: f.get('access_token').trim()}})); }
   catch (e) { $('loginErr').textContent = e.message; }
-  finally { btn.disabled = false; ev.target.password.value = ''; }
+  finally { btn.disabled = false; ev.target.access_token.value = ''; }
 });
-(async () => { try { showApp(await api('/api/me')); } catch (e) { showLogin(); } })();
+(async () => { try { showApp(await api('/api/me')); } catch (e) { showLoginOrUsePortal(); } })();
 </script>
 </body>
 </html>
