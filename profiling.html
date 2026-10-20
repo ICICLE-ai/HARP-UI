@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Profiling design &mdash; iScheduler</title>
+<title>Profiling &mdash; iScheduler</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -211,6 +211,8 @@ footer a:hover{color:#fff}
 .reveal.in{opacity:1;transform:none}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto}.reveal{opacity:1;transform:none}.orbit{animation:none}}
 :focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+[hidden]{display:none!important}
+section.main{padding-bottom:90px}
 
 /* clickable loop steps */
 a.step{color:inherit;text-decoration:none;transition:background .12s}
@@ -292,6 +294,10 @@ tr.selectable.sel{background:var(--teal-50)}
 .wrap-p{max-width:1180px;margin:0 auto;padding:0 28px}
 .pgrid{display:grid;grid-template-columns:1fr 380px;gap:26px;align-items:start}
 @media(max-width:980px){.pgrid{grid-template-columns:1fr}}
+.pgrid>*{min-width:0}
+.atbl{overflow-x:auto}
+.ahead,.arow{min-width:420px}
+@media(max-width:560px){.wrap-p{padding:0 16px}}
 
 .card2{background:#fff;border:1px solid var(--line);border-radius:var(--r);
   padding:20px 22px;margin-bottom:16px}
@@ -407,506 +413,1603 @@ select:focus,input.ti:focus{outline:none;border-color:var(--teal)}
   border:none;background:var(--teal);color:#fff;cursor:pointer;width:100%;margin-top:14px}
 .btnx:hover{background:var(--teal-700)}
 .btnx:disabled{background:#7C92A8;cursor:not-allowed}
+.who{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
+.who[hidden]{display:none}
+.login{max-width:420px;margin:0 auto}
+.loginerr{font-size:12.5px;color:#A23A3A;margin-top:10px;min-height:1em}
+.budget select{width:100%}
+.budget .lbl{color:#9DB3C6}
+.budget .two{align-items:end}
+.budget .two select,.budget .two input.ti{height:38px}
+.launchmsg{font-size:12px;color:#F0C9C4;margin-top:10px;min-height:1em;line-height:1.5}
+.launchmsg.ok{color:#8CD0DE}
+.stage[hidden]{display:none!important}
+.steps{position:relative}
+.ghostx{background:transparent;border:1px solid var(--panel-line);color:#CBD8E4;margin-top:8px}
+.ghostx:hover{background:rgba(255,255,255,.04);border-color:#8CD0DE}
+.intro{background:transparent;border-style:dashed}
+.three{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-bottom:12px}
+@media(max-width:640px){.three{grid-template-columns:1fr}}
+.sweephead{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:14px}
+.sweephead .spacer{flex:1}
+.swname{max-width:240px;font-weight:600;color:var(--navy)}
+.syshead{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 12px;margin-bottom:8px}
+.syshead h3{margin:0}
+.scroll{overflow-x:auto;max-width:100%}
+.table td.num,.table th.num{text-align:right}
+.qt th,.qt td{padding:10px 12px;white-space:nowrap;vertical-align:middle}
+.qt td:first-child{white-space:normal;min-width:140px}
+.qt .lim{white-space:normal;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--muted);min-width:170px}
+.qt .lim span{display:inline-block;margin-right:10px}
+.qt .c{text-align:center;max-width:120px;overflow:hidden;text-overflow:ellipsis}
+.qt input[type=checkbox]{width:18px;height:18px;accent-color:var(--teal)}
+.qt .qc{width:76px}
+.confirmrow{display:flex;gap:10px;align-items:center;font-size:14px;margin-top:6px;cursor:pointer}
+.confirmrow input{width:auto}
+.tlink{color:var(--teal-700);font-weight:600}
+.budget .kv .t{max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+
+/* ---- one-page profiling: tabs, plan, jobs, data ------------------------ */
+.tabs4{display:flex;flex-wrap:wrap;gap:4px;background:#fff;border:1px solid var(--line);border-radius:var(--r);
+  padding:5px;margin-bottom:20px;position:sticky;top:8px;z-index:10;box-shadow:0 8px 20px -16px rgba(17,41,63,.35)}
+.t4{flex:1 1 150px;display:flex;align-items:center;justify-content:center;gap:9px;font-family:"Space Grotesk",sans-serif;
+  font-size:14.5px;font-weight:500;color:var(--muted);background:none;border:none;border-radius:8px;padding:11px 12px;cursor:pointer}
+.t4:hover{color:var(--navy);background:#F6F8F9}
+.t4[aria-selected="true"]{background:var(--navy);color:#fff}
+.t4 .k{width:22px;height:22px;border-radius:50%;border:1px solid currentColor;display:inline-flex;align-items:center;
+  justify-content:center;font-family:"JetBrains Mono",monospace;font-size:11px;opacity:.75}
+.bdg{font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:600;min-width:20px;padding:1px 7px;border-radius:10px;
+  background:var(--teal-50);color:var(--teal-700)}
+.t4[aria-selected="true"] .bdg{background:var(--teal);color:#fff}
+.bdg.live:not(.zero){background:var(--orange-50);color:var(--orange-700)}
+.t4[aria-selected="true"] .bdg.live:not(.zero){background:var(--orange);color:#fff}
+.bdg.zero{opacity:.55}
+.panel4[hidden]{display:none!important}
+.chead{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-bottom:12px}
+.chead h3{margin:0}
+.chead .spacer{flex:1}
+.applist.compact .appitem{padding:10px 14px}
+.three{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-bottom:12px}
+@media(max-width:640px){.three{grid-template-columns:1fr}.three .field[style]{grid-column:auto!important}}
+.swname{max-width:220px;font-weight:600;color:var(--navy)}
+.syshead{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 10px;margin:14px 0 8px}
+.syshead:first-child{margin-top:0}
+.syshead b{font-family:"Space Grotesk",sans-serif;font-size:15px;color:var(--navy)}
+.qrow{display:grid;grid-template-columns:24px minmax(130px,1fr) minmax(160px,2fr) 84px;gap:8px 12px;align-items:center;
+  padding:9px 12px;border:1px solid var(--line);border-radius:9px;margin-bottom:6px;cursor:pointer;background:#fff}
+.qrow:hover{border-color:#c7d3d8}
+.qrow.on{border-color:var(--teal);background:var(--teal-50)}
+.qrow input[type=checkbox]{width:18px;height:18px;accent-color:var(--teal);margin:0}
+.qrow .qn{font-weight:600;color:var(--navy);font-size:14px}
+.qrow .qn .am{display:block;font-weight:400}
+.qrow .lim{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--muted);line-height:1.6}
+.qrow .lim span{display:inline-block;margin-right:10px}
+.qrow .qc{width:84px}
+.qrow.cfgrow{grid-template-columns:24px minmax(130px,1fr) minmax(160px,2fr) auto;cursor:default}
+.qrow.cfgrow>label{cursor:pointer}
+.qtog{font:inherit;font-size:12px;font-weight:600;color:var(--teal-700);background:#fff;border:1px solid var(--line);border-radius:7px;
+  padding:6px 10px;cursor:pointer;white-space:nowrap}
+.qtog:hover{border-color:var(--teal)}
+.qtog .ch{display:inline-block;margin-left:4px;transition:transform .15s}
+.qtog[aria-expanded="true"] .ch{transform:rotate(180deg)}
+.qcfg{grid-column:1 / -1;border-top:1px dashed #cfdde2;padding-top:10px;margin-top:2px}
+.cfgh,.cfgr{display:grid;grid-template-columns:28px repeat(3,minmax(90px,1fr)) 64px;gap:8px;align-items:start}
+.cfgh{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.cfgr{margin-bottom:6px}
+.cfgr .ix{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--muted);padding-top:8px}
+.cfgr input{width:100%;font-family:"JetBrains Mono",monospace;font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:#fff}
+.cfgr input.auto{color:var(--muted)}
+.cfgr .hint{display:block;font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--muted);margin-top:3px;line-height:1.4}
+.cfgr .rowbtn{font:inherit;font-size:12px;font-weight:600;background:none;border:none;cursor:pointer;padding:8px 0 0;color:#A23A3A;text-align:left}
+.cfgadd{font:inherit;font-size:12.5px;font-weight:600;color:var(--teal-700);background:none;border:1px dashed var(--teal);border-radius:7px;padding:6px 12px;cursor:pointer;margin-top:2px}
+.cfgnote{font-size:12px;color:var(--muted);margin:6px 0 0}
+@media(max-width:640px){.qrow.cfgrow{grid-template-columns:24px 1fr auto}
+  .cfgh{display:none}.cfgr{grid-template-columns:22px 1fr 1fr;row-gap:4px}.cfgr .ix{grid-row:1 / span 2}
+  .cfgr>div:nth-child(4){grid-column:2}.cfgr .rowbtn{grid-column:3;grid-row:2}}
+.qrow .qc input{width:100%;font-family:"JetBrains Mono",monospace;font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:6px}
+@media(max-width:640px){.qrow{grid-template-columns:24px 1fr 76px}.qrow .lim{grid-column:2 / -1;grid-row:2}}
+.ghostx{background:transparent;border:1px solid var(--panel-line);color:#CBD8E4;margin-top:10px}
+.ghostx:hover:not(:disabled){background:rgba(255,255,255,.05);border-color:#8CD0DE}
+.ghostx:disabled{background:transparent;color:#5d738a;border-color:var(--panel-line)}
+.budget h4 .t{float:right;color:#8CD0DE;text-transform:none;letter-spacing:0}
+.planlist{display:flex;flex-direction:column;gap:8px;max-height:340px;overflow:auto}
+.pitem{border:1px solid var(--panel-line);border-radius:9px;padding:10px 12px;font-size:12.5px}
+.pitem .pt{display:flex;gap:8px;align-items:baseline;justify-content:space-between}
+.pitem b{color:#fff;font-weight:600}
+.pitem .pm{font-family:"JetBrains Mono",monospace;font-size:11px;color:#7C92A8;margin-top:3px;line-height:1.5}
+.pitem .pa{display:flex;gap:12px;margin-top:6px}
+.pitem button{font:inherit;font-size:11.5px;background:none;border:none;color:#8CD0DE;cursor:pointer;padding:0}
+.pitem button.rm{color:#E4A39B}
+.planempty{font-size:12.5px;color:#7C92A8;border:1px dashed var(--panel-line);border-radius:9px;padding:14px;text-align:center}
+.launchmsg{font-size:12px;color:#F0C9C4;margin-top:8px;min-height:1em;line-height:1.5}
+.launchmsg.ok{color:#8CD0DE}
+.confirmrow{display:flex;gap:10px;align-items:center;font-size:14px;margin:4px 0 14px;cursor:pointer}
+.confirmrow input{width:auto}
+.actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.metrics4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+@media(max-width:760px){.metrics4{grid-template-columns:1fr 1fr}}
+.mt{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;min-width:0}
+.mt .v{font-family:"Space Grotesk",sans-serif;font-size:26px;font-weight:600;color:var(--navy);line-height:1.15;font-variant-numeric:tabular-nums}
+.mt .l{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:9px;max-width:100%}
+.scroll.tall{max-height:560px}
+.dt{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+.dt th{text-align:left;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--muted);font-weight:500;padding:9px 12px;background:#FCFCFB;border-bottom:1px solid var(--line);white-space:nowrap;position:sticky;top:0;z-index:1}
+.dt td{padding:8px 12px;border-top:1px solid #F0F2F3;white-space:nowrap;vertical-align:middle}
+.dt tr:first-child td{border-top:none}
+.dt .num{text-align:right;font-family:"JetBrains Mono",monospace}
+.dt .wt{color:var(--teal-700);font-weight:600}
+.dt .err{color:#A23A3A;font-size:11.5px;white-space:normal;max-width:260px;margin-top:3px}
+.dt .uuid{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--muted)}
+.dt .sortb{font:inherit;color:inherit;letter-spacing:inherit;text-transform:inherit;background:none;border:none;padding:0;cursor:pointer}
+.dt .sortb:hover{color:var(--navy)}
+.dt .rowbtn{font:inherit;font-size:12px;font-weight:600;background:none;border:none;cursor:pointer;padding:0;color:var(--teal-700)}
+.dt .rowbtn.danger{color:#A23A3A}
+.dt tr.sel td{background:var(--teal-50)}
+.prog{display:flex;height:7px;border-radius:4px;overflow:hidden;background:#EFF1F2;min-width:90px}
+.prog i{display:block;height:100%}
+.prog .f{background:var(--ok)}.prog .x{background:#C9564B}.prog .r{background:#CFE3E8}
+.st{font-family:"JetBrains Mono",monospace;font-size:10px;padding:2px 8px;border-radius:10px;letter-spacing:.03em;white-space:nowrap}
+.st.done{background:var(--ok-50);color:var(--ok)}.st.run{background:var(--teal-50);color:var(--teal-700)}
+.st.warn{background:var(--orange-50);color:var(--orange-700)}.st.bad{background:#FBE9E9;color:#A23A3A}
+.st.wait{background:#EFF1F2;color:var(--muted)}
+.fsel{width:auto;min-width:130px;font-size:12.5px;padding:7px 10px}
+.updated{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--muted)}
+.more{font-size:12.5px;color:var(--muted);margin-top:10px;display:flex;gap:12px;align-items:center}
+.linkbtn{font-family:inherit;font-size:13px;font-weight:600;color:var(--teal-700);background:none;border:none;cursor:pointer;padding:0}
+.dlbtn{font-family:inherit;font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:7px;border:1px solid var(--line);
+  background:#fff;color:var(--navy);cursor:pointer}
+.dlbtn:hover{border-color:var(--navy)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.achip{display:flex;align-items:center;gap:10px;padding:8px 14px 8px 8px;border:1px solid var(--line);border-radius:10px;
+  background:#fff;cursor:pointer;font-family:inherit;text-align:left}
+.achip:hover{border-color:#c7d3d8}
+.achip[aria-pressed="true"]{border-color:var(--teal);background:var(--teal-50);box-shadow:inset 0 0 0 1px var(--teal)}
+.achip .ic{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;
+  font-family:"JetBrains Mono",monospace;font-size:10.5px;font-weight:600;background:var(--navy);color:#fff}
+.achip .an{font-weight:600;font-size:13.5px;color:var(--navy);display:block}
+.achip .am{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--muted)}
+.chipbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:center}
+.fchip{font-family:"JetBrains Mono",monospace;font-size:11.5px;padding:5px 11px;border-radius:7px;border:1px solid var(--line);
+  background:#fff;color:var(--muted);cursor:pointer}
+.fchip[aria-pressed="true"]{border-color:var(--teal);background:var(--teal-50);color:var(--teal-700)}
+.fchip b{font-weight:600;margin-left:4px}
+.dgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.dgrid>*{min-width:0}
+@media(max-width:860px){.dgrid{grid-template-columns:1fr}}
+.ptables{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.ptables h4{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--teal-700);margin:0 0 6px}
+.toast{z-index:60}
+.pgrid>*{min-width:0}
+.bsteps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media(max-width:980px){.bsteps{grid-template-columns:1fr}}
+.bstep{border:1px solid var(--line);border-radius:10px;padding:14px 16px;min-width:0;background:#fff}
+.bstep h4{display:flex;align-items:center;gap:9px;margin:0 0 8px;font-family:"Space Grotesk",sans-serif;font-size:15px;color:var(--navy)}
+.bn{width:22px;height:22px;border-radius:50%;background:var(--navy);color:#fff;display:inline-flex;align-items:center;justify-content:center;
+  font-family:"JetBrains Mono",monospace;font-size:11px}
+.bhelp{font-size:12.5px;color:var(--muted);margin:0 0 10px;line-height:1.5}
+.bsw{display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:4px 10px;align-items:center;padding:8px 10px;border:1px solid var(--line);
+  border-radius:8px;margin-bottom:6px;cursor:pointer;font-size:13px}
+.bsw.on{border-color:var(--teal);background:var(--teal-50)}
+.bsw input{width:16px;height:16px;margin:0;accent-color:var(--teal)}
+.bsw b{color:var(--navy);font-weight:600;overflow-wrap:anywhere}
+.bsw .am{grid-column:2 / -1;font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--muted);overflow-wrap:anywhere}
+.cov{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.cov>div{border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.cov .v{font-family:"Space Grotesk",sans-serif;font-size:20px;font-weight:600;color:var(--navy)}
+.cov .l{font-family:"JetBrains Mono",monospace;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.cov>.ok{border-color:#BFDCCB;background:var(--ok-50)}.cov>.no{border-color:#F0C9C4;background:#FBE9E9}
+.blist{font-size:12.5px;line-height:1.55;margin:6px 0;color:var(--ink)}
+.blist code{font-family:"JetBrains Mono",monospace;font-size:11px;background:#F3F5F6;padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+.bprob{color:#A23A3A;font-size:12.5px;margin:6px 0}
+.bdest{display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:10px}
+.brun{border-top:1px solid var(--line);margin-top:14px;padding-top:12px;font-size:12.5px}
+.brun .scroll{margin-top:8px}
+.brun .bt{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+.bsteprow{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0}
+.bsteprow span{font-family:"JetBrains Mono",monospace;font-size:10px;padding:2px 7px;border-radius:9px;background:#EFF1F2;color:var(--muted)}
+.bsteprow .done{background:var(--ok-50);color:var(--ok)}.bsteprow .running{background:var(--teal-50);color:var(--teal-700)}
+.bsteprow .failed{background:#FBE9E9;color:#A23A3A}
+.best{border:1px solid #BFDCCB;background:var(--ok-50);border-radius:8px;padding:8px 10px;margin:8px 0;line-height:1.5}
+.help{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;margin-left:6px;
+  border:1px solid #b9c7cd;background:#fff;color:var(--teal-700);font:600 11px/1 "Space Grotesk",sans-serif;cursor:pointer;vertical-align:middle;padding:0;flex:none}
+.help:hover,.help[aria-expanded="true"]{background:var(--teal);border-color:var(--teal);color:#fff}
+.helppop{position:fixed;z-index:80;max-width:min(360px,calc(100vw - 32px));background:#fff;border:1px solid var(--line);border-radius:10px;
+  box-shadow:0 14px 36px -12px rgba(17,41,63,.35);padding:12px 14px;font-size:13px;line-height:1.55;color:var(--ink)}
+.helppop p{margin:0 0 8px}.helppop p:last-child{margin:0}.helppop b{color:var(--navy)}
+.helppop code{font-family:"JetBrains Mono",monospace;font-size:11px;background:#F3F5F6;padding:1px 4px;border-radius:4px}
+.bready{font-size:12.5px;margin:8px 0 4px;line-height:1.5}
+.bready.ok{color:var(--ok)}.bready.no{color:#A23A3A}
+.bdet summary{cursor:pointer;font-size:12.5px;color:var(--teal-700);font-weight:600;margin:4px 0}
+.bdet[open] summary{margin-bottom:8px}
+.bopts{display:flex;flex-direction:column;gap:6px}
+.bopt{display:grid;grid-template-columns:18px 1fr;gap:2px 8px;align-items:start;font-size:13px;cursor:pointer;padding:7px 9px;border:1px solid var(--line);border-radius:8px}
+.bopt.on{border-color:var(--teal);background:var(--teal-50)}
+.bopt input{margin:2px 0 0;width:15px;height:15px;accent-color:var(--teal)}
+.bopt b{color:var(--navy);font-weight:600}.bopt .am{grid-column:2;font-size:11.5px;color:var(--muted)}
+.bsub2{display:flex;align-items:center;font-family:"JetBrains Mono",monospace;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:12px 0 6px}
+.bmhead{margin:18px 0 0}
+.bwhere{font-size:12px;color:var(--muted)}
+.badv{margin-top:8px;padding-left:14px;border-left:2px solid var(--teal-50)}
+.bnote{font-size:12px;color:var(--muted);margin:4px 0 0;line-height:1.5}
+.fromapp{display:grid;grid-template-columns:120px 1fr;gap:6px 14px;margin:8px 0 0;font-size:12.5px}
+.fromapp dt{font-family:"JetBrains Mono",monospace;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--teal-700);padding-top:2px}
+.fromapp dd{margin:0;color:var(--ink);overflow-wrap:anywhere}
+@media(max-width:640px){.fromapp{grid-template-columns:1fr}.fromapp dd{margin-bottom:6px}}
+.appmeta .appfrom{width:100%}
+.movedet{margin:4px 0 14px;border:1px dashed var(--line);border-radius:9px;padding:8px 12px}
+.stabs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:18px 0 10px}
+.st{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:12px 16px;border-radius:var(--r);
+  border:1px solid var(--line);background:#fff;cursor:pointer;font-family:inherit;color:var(--muted)}
+.st b{font-family:"Space Grotesk",sans-serif;font-size:17px;font-weight:600;color:var(--navy)}
+.st span{font-size:12.5px}
+.st:hover{border-color:#c7d3d8}
+.st[aria-selected="true"]{background:var(--navy);border-color:var(--navy);color:#cfd9e3}
+.st[aria-selected="true"] b{color:#fff}
+@media(max-width:640px){.stabs{gap:6px}.st{padding:10px}.st b{font-size:14px}.st span{display:none}}
+.tabs4[hidden]{display:none!important}
+.syshead .acct{display:flex;align-items:center;gap:6px;margin-left:auto}
+.syshead .acct label{font-family:"JetBrains Mono",monospace;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.syshead .acct input{width:150px;font-family:"JetBrains Mono",monospace;font-size:12px;padding:5px 8px;border:1px solid var(--line);border-radius:6px}
+@media(max-width:640px){.syshead .acct{margin-left:0;width:100%}.syshead .acct input{flex:1}}
+.erow{display:grid;grid-template-columns:24px minmax(120px,1fr) minmax(140px,2fr) 90px;gap:8px 12px;align-items:center;
+  padding:9px 12px;border:1px solid var(--line);border-radius:9px;margin-bottom:6px;background:#fff}
+.erow.on{border-color:var(--teal);background:var(--teal-50)}
+.erow .qn{font-weight:600;color:var(--navy);font-size:14px}
+.erow .lim{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--muted);line-height:1.6}
+.erow .lim span{display:inline-block;margin-right:10px}
+.erow input[type=checkbox]{width:18px;height:18px;accent-color:var(--teal);margin:0}
+.erow input[type=number]{width:100%;font-family:"JetBrains Mono",monospace;font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:6px}
+@media(max-width:640px){.erow{grid-template-columns:24px 1fr 80px}.erow .lim{grid-column:2 / -1;grid-row:2}}
+.mpick{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.mopt{display:grid;grid-template-columns:18px 1fr auto;gap:2px 10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer;font-size:13px}
+.mopt.on{border-color:var(--teal);background:var(--teal-50)}
+.mopt input{margin:0;accent-color:var(--teal)}
+.mopt b{color:var(--navy)}.mopt .am{grid-column:2 / -1;font-size:11.5px;color:var(--muted)}
+.mopt .sc{font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--teal-700);text-align:right}
+#sweepTable td:first-child{white-space:normal;word-break:break-word;min-width:170px;max-width:240px}
+#sweepTable td:nth-child(5){white-space:normal;min-width:110px;max-width:180px}
+#jobsTable td:nth-child(2){white-space:normal;word-break:break-word;max-width:190px}
+#jobsTable td:nth-child(3){white-space:normal;word-break:break-all;max-width:190px}
+#doneTable td:first-child,#doneTable td:nth-child(3){white-space:normal;word-break:break-all}
+.appsel{width:100%;font-size:15px;font-weight:500;color:var(--navy);padding:11px 12px}
+.appmeta{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:10px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--muted)}
+.appmeta b{font-weight:500;text-transform:uppercase;letter-spacing:.05em;font-size:10px;color:var(--teal-700);margin-right:4px}
+.appmeta span{min-width:0;word-break:break-all}
+.qrow .qcl{display:block;font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
 </style>
 
-<script>
-/* Embedded survey data; served CSVs take precedence. */
-const EMBEDDED = {"hardware_targets":[{"center_code":"OSC","system_code":"cardinal","login_hostname":"localhost","queue_name":"serial","queue_state":"UP","node_type_fingerprint":"dda09d0bf2fce729","node_type_label":"cpu-104c-502gb","node_count":"3","cpu_vendor":"","cpu_model":"","cpu_source":"FEATURE_MAP","sockets":"2","cores_per_socket":"52","threads_per_core":"1","cores_per_node":"104","host_memory_mb":"515000","host_memory_mb_per_core":"4951.923","architecture":"x86_64","gpu_vendor":"","gpu_model":"","gpus_per_node":"","gpu_memory_mb":"","gpu_memory_mb_total_per_node":"","gpu_architecture":"","compute_capability":"","xla_device_kind":"","gpu_precisions":"","queue_max_nodes":"1","queue_max_minutes":"10080","queue_max_memory_mb":"515000","queue_cores_total":"312","queue_gpus_total":"0","is_heterogeneous_queue":"false","limits_complete":"true","unknown_limits":"","collected_at":"2026-07-22T09:17:23.543112+00:00"},{"center_code":"OSC","system_code":"cardinal","login_hostname":"localhost","queue_name":"gpu","queue_state":"UP","node_type_fingerprint":"6b233a513779c616","node_type_label":"gpu-h100-x4-96c","node_count":"2","cpu_vendor":"Intel","cpu_model":"Intel Xeon","cpu_source":"LOGIN_NODE","sockets":"2","cores_per_socket":"48","threads_per_core":"1","cores_per_node":"96","host_memory_mb":"1030000","host_memory_mb_per_core":"10729.167","architecture":"x86_64","gpu_vendor":"NVIDIA","gpu_model":"h100","gpus_per_node":"4","gpu_memory_mb":"81920","gpu_memory_mb_total_per_node":"327680","gpu_architecture":"Hopper","compute_capability":"sm_90","xla_device_kind":"CUDA","gpu_precisions":"BF16;FP16;FP32;FP64;FP8;INT8;TF32","queue_max_nodes":"-1","queue_max_minutes":"-1","queue_max_memory_mb":"1030000","queue_cores_total":"192","queue_gpus_total":"8","is_heterogeneous_queue":"true","limits_complete":"true","unknown_limits":"","collected_at":"2026-07-22T09:17:23.543112+00:00"},{"center_code":"OSC","system_code":"cardinal","login_hostname":"localhost","queue_name":"gpu","queue_state":"UP","node_type_fingerprint":"fd5d13d54dbc05e1","node_type_label":"gpu-a100-x2-48c","node_count":"1","cpu_vendor":"Intel","cpu_model":"Intel Xeon","cpu_source":"LOGIN_NODE","sockets":"2","cores_per_socket":"24","threads_per_core":"1","cores_per_node":"48","host_memory_mb":"380000","host_memory_mb_per_core":"7916.667","architecture":"x86_64","gpu_vendor":"NVIDIA","gpu_model":"a100","gpus_per_node":"2","gpu_memory_mb":"81920","gpu_memory_mb_total_per_node":"163840","gpu_architecture":"Ampere","compute_capability":"sm_80","xla_device_kind":"CUDA","gpu_precisions":"BF16;FP16;FP32;FP64;INT8;TF32","queue_max_nodes":"-1","queue_max_minutes":"-1","queue_max_memory_mb":"1030000","queue_cores_total":"48","queue_gpus_total":"2","is_heterogeneous_queue":"true","limits_complete":"true","unknown_limits":"","collected_at":"2026-07-22T09:17:23.543112+00:00"},{"center_code":"TACC","system_code":"frontera","login_hostname":"localhost","queue_name":"serial","queue_state":"UP","node_type_fingerprint":"dda09d0bf2fce729","node_type_label":"cpu-104c-502gb","node_count":"3","cpu_vendor":"","cpu_model":"","cpu_source":"FEATURE_MAP","sockets":"2","cores_per_socket":"52","threads_per_core":"1","cores_per_node":"104","host_memory_mb":"515000","host_memory_mb_per_core":"4951.923","architecture":"x86_64","gpu_vendor":"","gpu_model":"","gpus_per_node":"","gpu_memory_mb":"","gpu_memory_mb_total_per_node":"","gpu_architecture":"","compute_capability":"","xla_device_kind":"","gpu_precisions":"","queue_max_nodes":"1","queue_max_minutes":"10080","queue_max_memory_mb":"515000","queue_cores_total":"312","queue_gpus_total":"0","is_heterogeneous_queue":"false","limits_complete":"true","unknown_limits":"","collected_at":"2026-07-22T09:17:23.710015+00:00"},{"center_code":"TACC","system_code":"frontera","login_hostname":"localhost","queue_name":"gpu","queue_state":"UP","node_type_fingerprint":"6b233a513779c616","node_type_label":"gpu-h100-x4-96c","node_count":"2","cpu_vendor":"Intel","cpu_model":"Intel Xeon","cpu_source":"LOGIN_NODE","sockets":"2","cores_per_socket":"48","threads_per_core":"1","cores_per_node":"96","host_memory_mb":"1030000","host_memory_mb_per_core":"10729.167","architecture":"x86_64","gpu_vendor":"NVIDIA","gpu_model":"h100","gpus_per_node":"4","gpu_memory_mb":"81920","gpu_memory_mb_total_per_node":"327680","gpu_architecture":"Hopper","compute_capability":"sm_90","xla_device_kind":"CUDA","gpu_precisions":"BF16;FP16;FP32;FP64;FP8;INT8;TF32","queue_max_nodes":"-1","queue_max_minutes":"-1","queue_max_memory_mb":"1030000","queue_cores_total":"192","queue_gpus_total":"8","is_heterogeneous_queue":"true","limits_complete":"true","unknown_limits":"","collected_at":"2026-07-22T09:17:23.710015+00:00"},{"center_code":"TACC","system_code":"frontera","login_hostname":"localhost","queue_name":"gpu","queue_state":"UP","node_type_fingerprint":"fd5d13d54dbc05e1","node_type_label":"gpu-a100-x2-48c","node_count":"1","cpu_vendor":"Intel","cpu_model":"Intel Xeon","cpu_source":"LOGIN_NODE","sockets":"2","cores_per_socket":"24","threads_per_core":"1","cores_per_node":"48","host_memory_mb":"380000","host_memory_mb_per_core":"7916.667","architecture":"x86_64","gpu_vendor":"NVIDIA","gpu_model":"a100","gpus_per_node":"2","gpu_memory_mb":"81920","gpu_memory_mb_total_per_node":"163840","gpu_architecture":"Ampere","compute_capability":"sm_80","xla_device_kind":"CUDA","gpu_precisions":"BF16;FP16;FP32;FP64;INT8;TF32","queue_max_nodes":"-1","queue_max_minutes":"-1","queue_max_memory_mb":"1030000","queue_cores_total":"48","queue_gpus_total":"2","is_heterogeneous_queue":"true","limits_complete":"true","unknown_limits":"","collected_at":"2026-07-22T09:17:23.710015+00:00"}],"queues":[{"center_code":"OSC","system_code":"cardinal","queue_name":"serial","is_default":"true","state":"UP","min_nodes":"1","max_nodes":"1","min_minutes":"","max_minutes":"10080","default_minutes":"60","max_memory_mb_per_node":"515000","max_memory_mb_per_cpu":"","default_memory_mb_per_cpu":"4096","max_cpus_per_node":"104","priority_tier":"1","preemption_mode":"OFF","oversubscribe":"YES:4","allows_node_sharing":"true","total_nodes":"3","total_cpus":"312","observed_max_cores_per_node":"104","observed_max_memory_mb":"515000","observed_max_gpus_per_node":"0","is_heterogeneous":"false","limits_complete":"true","unknown_limits":""},{"center_code":"OSC","system_code":"cardinal","queue_name":"gpu","is_default":"false","state":"UP","min_nodes":"1","max_nodes":"-1","min_minutes":"","max_minutes":"-1","default_minutes":"","max_memory_mb_per_node":"","max_memory_mb_per_cpu":"","default_memory_mb_per_cpu":"","max_cpus_per_node":"-1","priority_tier":"2","preemption_mode":"OFF","oversubscribe":"NO","allows_node_sharing":"false","total_nodes":"3","total_cpus":"240","observed_max_cores_per_node":"96","observed_max_memory_mb":"1030000","observed_max_gpus_per_node":"4","is_heterogeneous":"true","limits_complete":"true","unknown_limits":""},{"center_code":"OSC","system_code":"cardinal","queue_name":"broken","is_default":"false","state":"UP","min_nodes":"","max_nodes":"","min_minutes":"","max_minutes":"","default_minutes":"","max_memory_mb_per_node":"","max_memory_mb_per_cpu":"","default_memory_mb_per_cpu":"","max_cpus_per_node":"","priority_tier":"","preemption_mode":"","oversubscribe":"","allows_node_sharing":"false","total_nodes":"","total_cpus":"","observed_max_cores_per_node":"","observed_max_memory_mb":"","observed_max_gpus_per_node":"","is_heterogeneous":"false","limits_complete":"false","unknown_limits":"max_cores_per_node;max_memory_mb;max_minutes;max_nodes"},{"center_code":"OSC","system_code":"cardinal","queue_name":"maint","is_default":"false","state":"INACTIVE","min_nodes":"","max_nodes":"4","min_minutes":"","max_minutes":"240","default_minutes":"","max_memory_mb_per_node":"","max_memory_mb_per_cpu":"","default_memory_mb_per_cpu":"","max_cpus_per_node":"","priority_tier":"","preemption_mode":"","oversubscribe":"","allows_node_sharing":"false","total_nodes":"","total_cpus":"","observed_max_cores_per_node":"","observed_max_memory_mb":"","observed_max_gpus_per_node":"","is_heterogeneous":"false","limits_complete":"false","unknown_limits":"max_cores_per_node;max_memory_mb"},{"center_code":"TACC","system_code":"frontera","queue_name":"serial","is_default":"true","state":"UP","min_nodes":"1","max_nodes":"1","min_minutes":"","max_minutes":"10080","default_minutes":"60","max_memory_mb_per_node":"515000","max_memory_mb_per_cpu":"","default_memory_mb_per_cpu":"4096","max_cpus_per_node":"104","priority_tier":"1","preemption_mode":"OFF","oversubscribe":"YES:4","allows_node_sharing":"true","total_nodes":"3","total_cpus":"312","observed_max_cores_per_node":"104","observed_max_memory_mb":"515000","observed_max_gpus_per_node":"0","is_heterogeneous":"false","limits_complete":"true","unknown_limits":""},{"center_code":"TACC","system_code":"frontera","queue_name":"gpu","is_default":"false","state":"UP","min_nodes":"1","max_nodes":"-1","min_minutes":"","max_minutes":"-1","default_minutes":"","max_memory_mb_per_node":"","max_memory_mb_per_cpu":"","default_memory_mb_per_cpu":"","max_cpus_per_node":"-1","priority_tier":"2","preemption_mode":"OFF","oversubscribe":"NO","allows_node_sharing":"false","total_nodes":"3","total_cpus":"240","observed_max_cores_per_node":"96","observed_max_memory_mb":"1030000","observed_max_gpus_per_node":"4","is_heterogeneous":"true","limits_complete":"true","unknown_limits":""},{"center_code":"TACC","system_code":"frontera","queue_name":"broken","is_default":"false","state":"UP","min_nodes":"","max_nodes":"","min_minutes":"","max_minutes":"","default_minutes":"","max_memory_mb_per_node":"","max_memory_mb_per_cpu":"","default_memory_mb_per_cpu":"","max_cpus_per_node":"","priority_tier":"","preemption_mode":"","oversubscribe":"","allows_node_sharing":"false","total_nodes":"","total_cpus":"","observed_max_cores_per_node":"","observed_max_memory_mb":"","observed_max_gpus_per_node":"","is_heterogeneous":"false","limits_complete":"false","unknown_limits":"max_cores_per_node;max_memory_mb;max_minutes;max_nodes"},{"center_code":"TACC","system_code":"frontera","queue_name":"maint","is_default":"false","state":"INACTIVE","min_nodes":"","max_nodes":"4","min_minutes":"","max_minutes":"240","default_minutes":"","max_memory_mb_per_node":"","max_memory_mb_per_cpu":"","default_memory_mb_per_cpu":"","max_cpus_per_node":"","priority_tier":"","preemption_mode":"","oversubscribe":"","allows_node_sharing":"false","total_nodes":"","total_cpus":"","observed_max_cores_per_node":"","observed_max_memory_mb":"","observed_max_gpus_per_node":"","is_heterogeneous":"false","limits_complete":"false","unknown_limits":"max_cores_per_node;max_memory_mb"}],"accelerator_catalogue":[{"slurm_gres_name":"a100","vendor":"NVIDIA","display_name":"A100","memory_mb":"81920","architecture":"Ampere","compute_capability":"sm_80","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"2039","precision":"BF16","peak_tflops_dense":"312.0"},{"slurm_gres_name":"a100","vendor":"NVIDIA","display_name":"A100","memory_mb":"81920","architecture":"Ampere","compute_capability":"sm_80","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"2039","precision":"FP16","peak_tflops_dense":"312.0"},{"slurm_gres_name":"a100","vendor":"NVIDIA","display_name":"A100","memory_mb":"81920","architecture":"Ampere","compute_capability":"sm_80","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"2039","precision":"FP32","peak_tflops_dense":"19.5"},{"slurm_gres_name":"a100","vendor":"NVIDIA","display_name":"A100","memory_mb":"81920","architecture":"Ampere","compute_capability":"sm_80","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"2039","precision":"FP64","peak_tflops_dense":"9.7"},{"slurm_gres_name":"a100","vendor":"NVIDIA","display_name":"A100","memory_mb":"81920","architecture":"Ampere","compute_capability":"sm_80","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"2039","precision":"INT8","peak_tflops_dense":"624.0"},{"slurm_gres_name":"a100","vendor":"NVIDIA","display_name":"A100","memory_mb":"81920","architecture":"Ampere","compute_capability":"sm_80","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"2039","precision":"TF32","peak_tflops_dense":"156.0"},{"slurm_gres_name":"a30","vendor":"NVIDIA","display_name":"A30","memory_mb":"24576","architecture":"Ampere","compute_capability":"sm_80","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"933","precision":"BF16","peak_tflops_dense":"165.0"},{"slurm_gres_name":"a30","vendor":"NVIDIA","display_name":"A30","memory_mb":"24576","architecture":"Ampere","compute_capability":"sm_80","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"933","precision":"FP16","peak_tflops_dense":"165.0"},{"slurm_gres_name":"a30","vendor":"NVIDIA","display_name":"A30","memory_mb":"24576","architecture":"Ampere","compute_capability":"sm_80","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"933","precision":"FP32","peak_tflops_dense":"10.3"},{"slurm_gres_name":"a30","vendor":"NVIDIA","display_name":"A30","memory_mb":"24576","architecture":"Ampere","compute_capability":"sm_80","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"933","precision":"FP64","peak_tflops_dense":"5.2"},{"slurm_gres_name":"a30","vendor":"NVIDIA","display_name":"A30","memory_mb":"24576","architecture":"Ampere","compute_capability":"sm_80","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"933","precision":"TF32","peak_tflops_dense":"82.0"},{"slurm_gres_name":"gh200","vendor":"NVIDIA","display_name":"GH200","memory_mb":"98304","architecture":"Hopper","compute_capability":"sm_90","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"4000","precision":"BF16","peak_tflops_dense":"990.0"},{"slurm_gres_name":"gh200","vendor":"NVIDIA","display_name":"GH200","memory_mb":"98304","architecture":"Hopper","compute_capability":"sm_90","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"4000","precision":"FP32","peak_tflops_dense":"67.0"},{"slurm_gres_name":"gh200","vendor":"NVIDIA","display_name":"GH200","memory_mb":"98304","architecture":"Hopper","compute_capability":"sm_90","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"4000","precision":"FP8","peak_tflops_dense":"1979.0"},{"slurm_gres_name":"gh200","vendor":"NVIDIA","display_name":"GH200","memory_mb":"98304","architecture":"Hopper","compute_capability":"sm_90","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"4000","precision":"TF32","peak_tflops_dense":"495.0"},{"slurm_gres_name":"h100","vendor":"NVIDIA","display_name":"H100","memory_mb":"81920","architecture":"Hopper","compute_capability":"sm_90","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"3350","precision":"BF16","peak_tflops_dense":"990.0"},{"slurm_gres_name":"h100","vendor":"NVIDIA","display_name":"H100","memory_mb":"81920","architecture":"Hopper","compute_capability":"sm_90","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"3350","precision":"FP16","peak_tflops_dense":"990.0"},{"slurm_gres_name":"h100","vendor":"NVIDIA","display_name":"H100","memory_mb":"81920","architecture":"Hopper","compute_capability":"sm_90","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"3350","precision":"FP32","peak_tflops_dense":"67.0"},{"slurm_gres_name":"h100","vendor":"NVIDIA","display_name":"H100","memory_mb":"81920","architecture":"Hopper","compute_capability":"sm_90","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"3350","precision":"FP64","peak_tflops_dense":"34.0"},{"slurm_gres_name":"h100","vendor":"NVIDIA","display_name":"H100","memory_mb":"81920","architecture":"Hopper","compute_capability":"sm_90","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"3350","precision":"FP8","peak_tflops_dense":"1979.0"},{"slurm_gres_name":"h100","vendor":"NVIDIA","display_name":"H100","memory_mb":"81920","architecture":"Hopper","compute_capability":"sm_90","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"3350","precision":"INT8","peak_tflops_dense":"1979.0"},{"slurm_gres_name":"h100","vendor":"NVIDIA","display_name":"H100","memory_mb":"81920","architecture":"Hopper","compute_capability":"sm_90","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"3350","precision":"TF32","peak_tflops_dense":"495.0"},{"slurm_gres_name":"l40s","vendor":"NVIDIA","display_name":"L40S","memory_mb":"49152","architecture":"Ada","compute_capability":"sm_89","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"864","precision":"BF16","peak_tflops_dense":"362.0"},{"slurm_gres_name":"l40s","vendor":"NVIDIA","display_name":"L40S","memory_mb":"49152","architecture":"Ada","compute_capability":"sm_89","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"864","precision":"FP16","peak_tflops_dense":"362.0"},{"slurm_gres_name":"l40s","vendor":"NVIDIA","display_name":"L40S","memory_mb":"49152","architecture":"Ada","compute_capability":"sm_89","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"864","precision":"FP32","peak_tflops_dense":"91.6"},{"slurm_gres_name":"l40s","vendor":"NVIDIA","display_name":"L40S","memory_mb":"49152","architecture":"Ada","compute_capability":"sm_89","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"864","precision":"FP8","peak_tflops_dense":"733.0"},{"slurm_gres_name":"l40s","vendor":"NVIDIA","display_name":"L40S","memory_mb":"49152","architecture":"Ada","compute_capability":"sm_89","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"864","precision":"TF32","peak_tflops_dense":"183.0"},{"slurm_gres_name":"p100","vendor":"NVIDIA","display_name":"Tesla P100","memory_mb":"16384","architecture":"Pascal","compute_capability":"sm_60","xla_device_kind":"CUDA","has_tensor_cores":"false","memory_bandwidth_gbps":"732","precision":"FP16","peak_tflops_dense":"18.7"},{"slurm_gres_name":"p100","vendor":"NVIDIA","display_name":"Tesla P100","memory_mb":"16384","architecture":"Pascal","compute_capability":"sm_60","xla_device_kind":"CUDA","has_tensor_cores":"false","memory_bandwidth_gbps":"732","precision":"FP32","peak_tflops_dense":"9.3"},{"slurm_gres_name":"p100","vendor":"NVIDIA","display_name":"Tesla P100","memory_mb":"16384","architecture":"Pascal","compute_capability":"sm_60","xla_device_kind":"CUDA","has_tensor_cores":"false","memory_bandwidth_gbps":"732","precision":"FP64","peak_tflops_dense":"4.7"},{"slurm_gres_name":"rtx6000","vendor":"NVIDIA","display_name":"Quadro RTX 6000","memory_mb":"24576","architecture":"Turing","compute_capability":"sm_75","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"672","precision":"FP16","peak_tflops_dense":"130.5"},{"slurm_gres_name":"rtx6000","vendor":"NVIDIA","display_name":"Quadro RTX 6000","memory_mb":"24576","architecture":"Turing","compute_capability":"sm_75","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"672","precision":"FP32","peak_tflops_dense":"16.3"},{"slurm_gres_name":"rtx6000","vendor":"NVIDIA","display_name":"Quadro RTX 6000","memory_mb":"24576","architecture":"Turing","compute_capability":"sm_75","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"672","precision":"INT8","peak_tflops_dense":"261.0"},{"slurm_gres_name":"v100","vendor":"NVIDIA","display_name":"Tesla V100","memory_mb":"32768","architecture":"Volta","compute_capability":"sm_70","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"900","precision":"FP16","peak_tflops_dense":"125.0"},{"slurm_gres_name":"v100","vendor":"NVIDIA","display_name":"Tesla V100","memory_mb":"32768","architecture":"Volta","compute_capability":"sm_70","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"900","precision":"FP32","peak_tflops_dense":"15.7"},{"slurm_gres_name":"v100","vendor":"NVIDIA","display_name":"Tesla V100","memory_mb":"32768","architecture":"Volta","compute_capability":"sm_70","xla_device_kind":"CUDA","has_tensor_cores":"true","memory_bandwidth_gbps":"900","precision":"FP64","peak_tflops_dense":"7.8"}],"collection_warnings":[{"center_code":"OSC","system_code":"cardinal","collected_at":"2026-07-22T09:17:23.543112+00:00","severity":"WARN","object_kind":"queue","object_name":"broken","field_name":"MaxTime","message":"not collected; consumers must treat as blocking"},{"center_code":"OSC","system_code":"cardinal","collected_at":"2026-07-22T09:17:23.543112+00:00","severity":"WARN","object_kind":"queue","object_name":"broken","field_name":"MaxNodes","message":"not collected; consumers must treat as blocking"},{"center_code":"OSC","system_code":"cardinal","collected_at":"2026-07-22T09:17:23.543112+00:00","severity":"INFO","object_kind":"queue","object_name":"gpu","field_name":"node_types","message":"spans 2 hardware configurations; ceilings are the maximum, not an average"},{"center_code":"OSC","system_code":"cardinal","collected_at":"2026-07-22T09:17:23.543112+00:00","severity":"WARN","object_kind":"queue","object_name":"broken","field_name":"node_types","message":"no nodes resolved; capacity ceilings unknown"},{"center_code":"OSC","system_code":"cardinal","collected_at":"2026-07-22T09:17:23.543112+00:00","severity":"WARN","object_kind":"queue","object_name":"maint","field_name":"node_types","message":"no nodes resolved; capacity ceilings unknown"},{"center_code":"OSC","system_code":"cardinal","collected_at":"2026-07-22T09:17:23.543112+00:00","severity":"WARN","object_kind":"node_type","object_name":"gpu-h100-x4-96c","field_name":"cpu_model","message":"CPU taken from the login node; compute nodes may differ. Re-run with --probe-cpu for ground truth."},{"center_code":"OSC","system_code":"cardinal","collected_at":"2026-07-22T09:17:23.543112+00:00","severity":"WARN","object_kind":"node_type","object_name":"gpu-a100-x2-48c","field_name":"cpu_model","message":"CPU taken from the login node; compute nodes may differ. Re-run with --probe-cpu for ground truth."},{"center_code":"TACC","system_code":"frontera","collected_at":"2026-07-22T09:17:23.710015+00:00","severity":"WARN","object_kind":"queue","object_name":"broken","field_name":"MaxTime","message":"not collected; consumers must treat as blocking"},{"center_code":"TACC","system_code":"frontera","collected_at":"2026-07-22T09:17:23.710015+00:00","severity":"WARN","object_kind":"queue","object_name":"broken","field_name":"MaxNodes","message":"not collected; consumers must treat as blocking"},{"center_code":"TACC","system_code":"frontera","collected_at":"2026-07-22T09:17:23.710015+00:00","severity":"INFO","object_kind":"queue","object_name":"gpu","field_name":"node_types","message":"spans 2 hardware configurations; ceilings are the maximum, not an average"},{"center_code":"TACC","system_code":"frontera","collected_at":"2026-07-22T09:17:23.710015+00:00","severity":"WARN","object_kind":"queue","object_name":"broken","field_name":"node_types","message":"no nodes resolved; capacity ceilings unknown"},{"center_code":"TACC","system_code":"frontera","collected_at":"2026-07-22T09:17:23.710015+00:00","severity":"WARN","object_kind":"queue","object_name":"maint","field_name":"node_types","message":"no nodes resolved; capacity ceilings unknown"},{"center_code":"TACC","system_code":"frontera","collected_at":"2026-07-22T09:17:23.710015+00:00","severity":"WARN","object_kind":"node_type","object_name":"gpu-h100-x4-96c","field_name":"cpu_model","message":"CPU taken from the login node; compute nodes may differ. Re-run with --probe-cpu for ground truth."},{"center_code":"TACC","system_code":"frontera","collected_at":"2026-07-22T09:17:23.710015+00:00","severity":"WARN","object_kind":"node_type","object_name":"gpu-a100-x2-48c","field_name":"cpu_model","message":"CPU taken from the login node; compute nodes may differ. Re-run with --probe-cpu for ground truth."}]};
-</script>
 </head>
 <body>
-<nav><div class="wrap nav-in">
-  <a class="wm" href="index.html"><span class="dot"></span>iScheduler</a>
-  <div class="nav-links">
-    <a href="index.html">Overview</a>
-    <a href="profiling.html" aria-current="page">Profiling</a>
-    <a href="systems.html">Systems</a>
-    <a href="api.html">API</a>
-  </div>
-  <a class="nav-cta" href="submit.html">Submit a job</a>
-</div></nav>
-<header class="page-head"><div class="wrap-p">
-  <div class="eyebrow">HARP-Generate</div>
-  <h1>Profiling</h1>
-  <p>Run a registered application across a parameter sweep to measure how its
-     walltime and memory behave. Pick an app that has jobs to profile, or
-     register a new one for profiling.</p>
-</div></header>
-
-<section><div class="wrap-p">
-  <div class="tabbar">
-    <button class="tabx" data-t="profiled" aria-selected="true">Profiled apps
-      <span class="b" id="cProfiled">0</span></button>
-    <button class="tabx" data-t="unprofiled" aria-selected="false">Not yet profiled
-      <span class="b" id="cUnprofiled">0</span></button>
+<section class="main"><div class="wrap-p">
+  <div class="card2 login" id="loginPanel" hidden>
+    <h3>Connect to TAPIS</h3>
+    <p class="sub">HARP uses your existing TAPIS access token to list the apps and systems you can use.</p>
+    <p class="sub" id="portalLoginStatus" role="status" hidden></p>
+    <form id="loginForm" hidden>
+      <div class="field"><label class="lbl" for="lgTenant">Tenant</label>
+        <input class="ti" id="lgTenant" name="base_url" value="https://icicleai.tapis.io" required></div>
+      <div class="field"><label class="lbl" for="lgToken">TAPIS access token (JWT)</label>
+        <input class="ti" id="lgToken" name="access_token" type="password" autocomplete="off"
+          autocapitalize="none" spellcheck="false" required></div>
+      <p class="sub">The token is validated by TAPIS, kept on the HARP server, and cleared from this form immediately.</p>
+      <button class="btnx" type="submit">Use access token</button>
+      <p class="loginerr" id="loginErr" role="alert"></p>
+    </form>
   </div>
 
-  <div class="pgrid">
-    <div>
-      <div class="card2">
-        <h3 id="listTitle">Applications</h3>
-        <p class="sub" id="listSub"></p>
-        <div class="applist" id="applist"></div>
-      </div>
+  <div id="appView" hidden>
+    <div class="stabs" role="tablist" aria-label="HARP">
+      <button class="st" role="tab" id="stab-generate" data-s="generate" aria-selected="true"><b>HARP Generate</b><span>profile your apps</span></button>
+      <button class="st" role="tab" id="stab-build" data-s="build" aria-selected="false"><b>HARP Build</b><span>train estimators</span></button>
+      <button class="st" role="tab" id="stab-estimate" data-s="estimate" aria-selected="false"><b>HARP Estimate</b><span>predict run times</span></button>
+    </div>
+    <div class="tabs4" role="tablist" aria-label="HARP Generate" data-s="generate">
+      <button class="t4" role="tab" id="tab-configure" data-p="configure" aria-selected="true"><span class="k">1</span>Configure</button>
+      <button class="t4" role="tab" id="tab-review" data-p="review" aria-selected="false"><span class="k">2</span>Review &amp; submit <b class="bdg" id="bPlan">0</b></button>
+      <button class="t4" role="tab" id="tab-data" data-p="data" aria-selected="false"><span class="k">3</span>Profiled data</button>
+      <button class="t4" role="tab" id="tab-jobs" data-p="jobs" aria-selected="false"><span class="k">4</span>Jobs <b class="bdg live" id="bActive">0</b></button>
+    </div>
+    <div class="tabs4" role="tablist" aria-label="HARP Build" data-s="build" hidden>
+      <button class="t4" role="tab" id="tab-bdata" data-p="bdata" aria-selected="false"><span class="k">1</span>Training data</button>
+      <button class="t4" role="tab" id="tab-bmodels" data-p="bmodels" aria-selected="false"><span class="k">2</span>Models &amp; where</button>
+      <button class="t4" role="tab" id="tab-btrained" data-p="btrained" aria-selected="false"><span class="k">3</span>Trained models <b class="bdg live zero" id="bBuilds">0</b></button>
+    </div>
+    <div class="tabs4" role="tablist" aria-label="HARP Estimate" data-s="estimate" hidden>
+      <button class="t4" role="tab" id="tab-econfig" data-p="econfig" aria-selected="false"><span class="k">1</span>Configure <b class="bdg zero" id="bEst">0</b></button>
+      <button class="t4" role="tab" id="tab-emodel" data-p="emodel" aria-selected="false"><span class="k">2</span>Select model</button>
+      <button class="t4" role="tab" id="tab-eresults" data-p="eresults" aria-selected="false"><span class="k">3</span>Estimates</button>
+    </div>
 
-      <div id="jobPanel" style="display:none">
-        <div class="card2">
-          <h3>Tapis jobs under this app</h3>
-          <p class="sub">Completed batch jobs already run through this
-            application. Their argument values seed the sweep.</p>
-          <div class="jsel">
-            <label class="lbl">Seed the sweep from a job</label>
-            <select id="jobPick"></select>
-            <div id="jobList"></div>
+    <!-- 1. CONFIGURE ------------------------------------------------------ -->
+    <div class="panel4" id="p-configure" role="tabpanel" aria-labelledby="tab-configure">
+      <div class="pgrid">
+        <div>
+          <div class="card2">
+            <div class="chead"><h3>App</h3></div>
+            <label class="lbl" for="appSel">Select an app to profile</label>
+            <select id="appSel" class="appsel"></select>
+            <div class="appmeta" id="appMeta"></div>
+          </div>
+
+          <div class="card2" id="sweepCard" hidden>
+            <div class="chead"><h3>Sweep</h3><button type="button" class="help" data-help="sweep" aria-label="What is a sweep, and a campaign?" aria-expanded="false">?</button>
+              <input class="ti swname" id="swName" aria-label="Sweep name" autocomplete="off">
+              <span class="pill" id="swCombos"></span></div>
+            <div class="three">
+              <div class="field"><label class="lbl" for="swType">Run type</label><button type="button" class="help" data-help="runtypes" aria-label="What are SD, FS and test_data?" aria-expanded="false">?</button>
+                <select id="swType"><option value="SD">SD &middot; scaled-down</option><option value="FS">FS &middot; full-scale</option><option value="test_data">test_data &middot; held out</option></select></div>
+              <div class="field"><label class="lbl" for="swReps">Repetitions</label><input class="ti" id="swReps" type="number" min="1" value="1"></div>
+              <div class="field"><label class="lbl" for="swTimeout">Timeout per run (min)</label><input class="ti" id="swTimeout" type="number" min="1" value="20"></div>
+            </div>
+            <div class="atbl" id="argTable"></div>
+            <p class="loginerr" id="swErr"></p>
+          </div>
+
+          <div class="card2" id="sysCard" hidden>
+            <div class="chead"><h3>Systems and queues</h3><span class="am">from TAPIS</span></div>
+            <p class="sub">Tick every queue this sweep should run on, then open it to set cores, memory and time limit.
+              Add more configurations to profile the same queue with different hardware; each one gets its own TAPIS jobs.</p>
+            <div id="systems"></div>
           </div>
         </div>
-      </div>
 
-      <div id="designPanel" style="display:none">
-        <div class="card2">
-          <h3>Container entrypoint</h3>
-          <p class="sub">Batch jobs only &mdash; submit and wait, no interaction.
-            How the command line reaches the container depends on the runtime.</p>
-          <div class="ep" id="epBlock"></div>
-        </div>
+        <aside class="budget" id="planPanel">
+          <h4>This sweep</h4>
+          <div class="big" id="curJobs">0</div>
+          <div class="blab" id="curJobsLbl">TAPIS jobs</div>
+          <div class="formula" id="curFormula">Pick an app to start.</div>
+          <button class="btnx" id="addBtn" type="button" disabled>Add to plan</button>
+          <p class="launchmsg" id="addMsg" role="status"></p>
 
-        <div class="card2">
-          <h3>Parameters to sweep</h3>
-          <p class="sub">Parsed from the app&rsquo;s entrypoint. For each, choose
-            how to vary it: a single fixed value, or a comma-separated list to
-            sweep. Anything left as a single value is held fixed.</p>
-          <div class="atbl" id="argTable"></div>
-          <p class="note">Choose <b>single</b> to hold a parameter fixed, or
-            <b>list</b> to sweep a comma-separated set of values.</p>
-        </div>
-      </div>
-
-      <div id="emptyPanel">
-        <div class="empty">Select an application to begin.</div>
+          <h4 style="margin-top:22px">Plan <span class="t" id="planTotals"></span></h4>
+          <div id="planList" class="planlist"></div>
+          <button class="btnx ghostx" id="toReview" type="button" disabled>Review &amp; submit</button>
+        </aside>
       </div>
     </div>
 
-    <div class="budget" id="budget" style="display:none">
-      <h4>Campaign size</h4>
-      <div class="big" id="totalRuns">0</div>
-      <div class="blab" id="runsLabel">runs</div>
-      <div class="formula" id="formula"></div>
-      <div class="kv"><span>experiments / target</span><span id="perTarget">0</span></div>
-      <div class="kv"><span>hardware targets</span><span class="t" id="nTargets">0</span></div>
-      <div class="kv"><span>repetitions</span><span id="nReps">1</span></div>
-      <div class="kv"><span>node-hours (worst case)</span><span id="nodeHours">0</span></div>
-      <div id="alarm"></div>
-
-      <h4 style="margin-top:22px">Hardware</h4>
-      <div id="hwpick"></div>
-
-      <div class="field" style="margin-top:14px">
-        <label class="lbl">Repetitions</label>
-        <input class="ti" id="reps" type="number" min="1" value="1">
+    <!-- 2. REVIEW & SUBMIT ---------------------------------------------- -->
+    <div class="panel4" id="p-review" role="tabpanel" aria-labelledby="tab-review" hidden>
+      <div class="card2">
+        <div class="chead"><h3>Plan</h3><span class="am" id="reviewTotals"></span></div>
+        <p class="sub">One row per sweep and queue. Each row becomes its own TAPIS jobs.</p>
+        <div class="scroll"><table class="dt" id="reviewTable"></table></div>
+        <p class="loginerr" id="reviewErr"></p>
       </div>
-      <div class="field">
-        <label class="lbl">Per-run timeout (min)</label>
-        <input class="ti" id="timeout" type="number" min="1" value="20">
+      <div class="card2" id="submitCard">
+        <div class="chead"><h3>Results location</h3><button type="button" class="help" data-help="results" aria-label="Where do results go?" aria-expanded="false">?</button></div>
+        <p class="sub">When each job ends, TAPIS copies its output here, and the merged profiling CSV is written here too.
+          Filled in from your last sweep or your account; change it if you like.</p>
+        <div class="three">
+          <div class="field"><label class="lbl" for="storeSys">TAPIS system</label><select id="storeSys"></select></div>
+          <div class="field" style="grid-column:span 2"><label class="lbl" for="store">Folder</label>
+            <input class="ti" id="store" placeholder="/fs/scratch/PAS0000/you/harp_runs" autocomplete="off"></div>
+        </div>
+        <details class="bdet movedet" id="moveDet"><summary>Copy the results to another location (optional)</summary>
+          <p class="sub">When the sweep finishes, the server copies its whole folder (merged CSV, manifest, every job's output)
+            here with a TAPIS file transfer. No account is needed: transfers are not jobs and use your TAPIS login on both systems.
+            You only need permission to write to the folder. The original stays where it is.</p>
+          <div class="three">
+            <div class="field"><label class="lbl" for="moveSys">TAPIS system</label><select id="moveSys"></select></div>
+            <div class="field" style="grid-column:span 2"><label class="lbl" for="movePath">Folder</label>
+              <input class="ti" id="movePath" placeholder="/fs/project/PAS0000/harp_results" autocomplete="off"></div>
+          </div>
+        </details>
+        <label class="confirmrow"><input type="checkbox" id="confirm"> I checked the plan above.</label>
+        <div class="actions">
+          <button class="btn btn-navy" id="submitBtn" type="button" disabled>Submit plan</button>
+          <span class="loginerr" id="submitMsg" role="status"></span>
+        </div>
       </div>
-
-      <button class="btnx" id="genBtn">Generate campaign</button>
+      <div class="card2" id="doneCard" hidden>
+        <h3 id="doneTitle"></h3>
+        <p class="sub" id="doneSub"></p>
+        <div class="scroll"><table class="dt" id="doneTable"></table></div>
+      </div>
     </div>
-  </div>
 
-  <div id="specWrap" style="display:none;margin-top:20px">
-    <div class="card2">
-      <h3>Cheetah campaign</h3>
-      <p class="sub">One campaign per hardware target &mdash; node layout is
-        machine-specific.</p>
-      <pre class="spec" id="spec" style="background:var(--panel);border-radius:10px;
-        padding:18px;color:#CBD8E4;font-family:'JetBrains Mono',monospace;font-size:12px;
-        line-height:1.6;overflow-x:auto"></pre>
+    <!-- 3. JOBS ----------------------------------------------------------- -->
+    <div class="panel4" id="p-jobs" role="tabpanel" aria-labelledby="tab-jobs" hidden>
+      <div class="metrics4">
+        <div class="mt"><div class="v" id="jActive">0</div><div class="l">Running or queued</div></div>
+        <div class="mt"><div class="v" id="jWait">0</div><div class="l">Waiting to submit</div></div>
+        <div class="mt"><div class="v" id="jDone">0</div><div class="l">Finished</div></div>
+        <div class="mt"><div class="v" id="jFail">0</div><div class="l">Failed</div></div>
+      </div>
+      <div class="card2">
+        <div class="chead"><h3>Sweeps</h3><button type="button" class="help" data-help="sweep" aria-label="What is a sweep, and a campaign?" aria-expanded="false">?</button><span class="spacer"></span><span class="updated" id="jUpdated"></span></div>
+        <div class="scroll"><table class="dt" id="sweepTable"></table></div>
+        <p class="loginerr" id="sweepErr"></p>
+      </div>
+      <div class="card2">
+        <div class="chead"><h3>TAPIS jobs</h3><span class="spacer"></span>
+          <select id="fApp" class="fsel" aria-label="Filter by app"></select>
+          <select id="fKind" class="fsel" aria-label="Job type"><option value="">All job types</option><option value="profiling">Profiling jobs</option><option value="build">Build jobs</option></select>
+            <select id="fStatus" class="fsel" aria-label="Filter by status">
+            <option value="">Any status</option><option value="active">Running or queued</option>
+            <option value="waiting">Waiting to submit</option><option value="finished">Finished</option><option value="failed">Failed</option></select>
+          <select id="fSystem" class="fsel" aria-label="Filter by system"></select>
+          <select id="fSweep" class="fsel" aria-label="Filter by sweep"></select></div>
+        <div class="scroll tall"><table class="dt" id="jobsTable"></table></div>
+        <div class="more" id="jCount"></div>
+      </div>
+    </div>
+
+    <!-- 4. PROFILED DATA ---------------------------------------------------- -->
+    <div class="panel4" id="p-data" role="tabpanel" aria-labelledby="tab-data" hidden>
+      <div class="card2">
+        <div class="chead"><h3>App</h3><span class="am">apps with profiling data</span></div>
+        <label class="lbl" for="dataApps">Select an app to see its profiled data</label>
+        <select id="dataApps" class="appsel"></select>
+        <div class="appmeta" id="dataAppMeta"></div>
+      </div>
+      <div id="dataBody" hidden>
+        <div class="metrics4">
+          <div class="mt"><div class="v" id="dExec">0</div><div class="l">Executions</div></div>
+          <div class="mt"><div class="v" id="dSys">0</div><div class="l">Systems</div></div>
+          <div class="mt"><div class="v" id="dParams">0</div><div class="l">Parameters varied</div></div>
+          <div class="mt"><div class="v" id="dWall">&ndash;</div><div class="l">Median time</div></div>
+        </div>
+        <div class="dgrid">
+          <div class="card2"><div class="chead"><h3>Time by run type</h3><button type="button" class="help" data-help="runtypes" aria-label="What are SD, FS and test_data?" aria-expanded="false">?</button></div><p class="sub">SD scaled-down, FS full-scale, test_data held out.</p>
+            <div class="scroll"><table class="dt" id="typeTable"></table></div></div>
+          <div class="card2"><h3>Time by hardware</h3><p class="sub">Median time per run, per system, queue and configuration.</p>
+            <div class="scroll"><table class="dt" id="hwTable"></table></div></div>
+        </div>
+        <div class="card2"><h3>Time by parameter</h3><p class="sub">Median time for each value of every parameter that was varied.</p>
+          <div class="ptables" id="paramTables"></div></div>
+        <div class="card2">
+          <div class="chead"><h3>Executions</h3><span class="spacer"></span>
+            <span class="updated" id="dUpdated"></span>
+            <button class="dlbtn" id="colsBtn" type="button" aria-pressed="false">Show all columns</button>
+            <button class="dlbtn" id="dlBtn" type="button">Download CSV</button></div>
+          <div class="chipbar" id="dFilters"></div>
+          <div class="scroll tall"><table class="dt" id="dataTable"></table></div>
+          <div class="more" id="dMore"></div>
+          <p class="loginerr" id="dMissing"></p>
+        </div>
+      </div>
+      <div class="empty" id="dataEmpty">No profiling data yet. Submit a plan, and the timings appear here as jobs finish.</div>
+    </div>
+
+    <!-- HARP BUILD ------------------------------------------------------- -->
+    <div class="panel4" id="p-bdata" role="tabpanel" aria-labelledby="tab-bdata" hidden>
+      <div class="card2">
+        <div class="chead"><h3>App</h3><button type="button" class="help" data-help="models" aria-label="Which models can HARP build?" aria-expanded="false">?</button><span class="am">apps with profiling data</span></div>
+        <label class="lbl" for="bApp">Select an app to build estimators for</label>
+        <select id="bApp" class="appsel"></select>
+      </div>
+      <div class="card2">
+        <div class="chead"><h3>Sweeps to learn from</h3><button type="button" class="help" data-help="runtypes" aria-label="What are SD, FS and test_data?" aria-expanded="false">?</button></div>
+        <p class="sub">Tick the sweeps whose runs the models learn from. Training needs SD, FS and test_data runs.</p>
+        <div id="bSweeps"></div>
+        <p class="bready" id="bReady"></p>
+        <details class="bdet"><summary>Data checks</summary><div id="bStd"></div></details>
+        <div class="actions"><button class="btn btn-navy" type="button" data-go="bmodels">Next: models &amp; where &rarr;</button></div>
+      </div>
+    </div>
+    <div class="panel4" id="p-bmodels" role="tabpanel" aria-labelledby="tab-bmodels" hidden>
+      <div class="dgrid">
+        <div class="card2">
+          <div class="chead"><h3>Models to build</h3><button type="button" class="help" data-help="models" aria-label="Which models can HARP build?" aria-expanded="false">?</button><span class="am" id="bAppName"></span></div>
+          <div class="bopts" id="bModels"></div>
+          <p class="bsub2">Trained on<button type="button" class="help" data-help="trainsets" aria-label="What are the training sets?" aria-expanded="false">?</button></p>
+          <div class="bopts">
+            <label class="bopt on" id="bSetAllL"><input type="radio" name="bSetMode" id="bSetAll" value="all" checked>
+              <b>All training sets</b><span class="am">Recommended. Every model is trained four ways (SD only, and SD plus 25, 50 or 75% of FS) and you keep the best.</span></label>
+            <label class="bopt" id="bSetAdvL"><input type="radio" name="bSetMode" id="bSetAdv" value="advanced">
+              <b>Advanced</b><span class="am">Pick the training sets yourself, e.g. to save time on a slow neural network.</span></label>
+          </div>
+          <div class="bopts badv" id="bSets" hidden></div>
+        </div>
+        <div class="card2">
+          <div class="chead"><h3>Where</h3><button type="button" class="help" data-help="runon" aria-label="Where does a build run?" aria-expanded="false">?</button></div>
+          <div class="bdest">
+            <div class="field"><label class="lbl" for="bRun">Run the build on</label><select id="bRun" class="ti"></select></div>
+            <div class="field"><label class="lbl" for="bSys">Save models on</label><select id="bSys" class="ti"></select></div>
+            <div class="field"><label class="lbl" for="bPath">Folder</label><input id="bPath" class="ti" placeholder="/fs/scratch/PAS0000/harp_runs" autocomplete="off"></div>
+          </div>
+          <p class="bready" id="bReady2"></p>
+          <div class="actions"><button class="btn btn-navy" id="buildBtn" type="button" disabled>Build models</button>
+            <span class="updated" id="buildMsg"></span></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel4" id="p-btrained" role="tabpanel" aria-labelledby="tab-btrained" hidden>
+      <div class="card2">
+        <div class="chead"><h3>Trained models</h3><button type="button" class="help" data-help="scores" aria-label="How are models scored?" aria-expanded="false">?</button><span class="am" id="bAppName2"></span></div>
+        <div id="bRuns"><p class="updated">No models built for this app yet.</p></div>
+      </div>
+    </div>
+
+    <!-- HARP ESTIMATE ---------------------------------------------------- -->
+    <div class="panel4" id="p-econfig" role="tabpanel" aria-labelledby="tab-econfig" hidden>
+      <div class="pgrid">
+        <div>
+          <div class="card2">
+            <div class="chead"><h3>App</h3><button type="button" class="help" data-help="inference" aria-label="What is an estimate entry?" aria-expanded="false">?</button></div>
+            <label class="lbl" for="eApp">Select an app to estimate</label>
+            <select id="eApp" class="appsel"></select>
+          </div>
+          <div class="card2" id="eValsCard" hidden>
+            <div class="chead"><h3>Run</h3><span class="am">one value per parameter</span></div>
+            <div class="atbl" id="eVals"></div>
+          </div>
+          <div class="card2" id="eSysCard" hidden>
+            <div class="chead"><h3>Systems and queues</h3><span class="am">from TAPIS</span></div>
+            <p class="sub">Tick where the run would go. Each queue gets its own estimate.</p>
+            <div id="eSystems"></div>
+          </div>
+        </div>
+        <aside class="budget">
+          <h4>Estimate list <span class="t" id="eTotals"></span></h4>
+          <div class="planlist" id="eList"></div>
+          <button class="btnx" id="eAdd" type="button" disabled>Add to estimate list</button>
+          <p class="launchmsg" id="eMsg"></p>
+          <button class="btnx ghostx" id="eNext" type="button" disabled>Next: select model &rarr;</button>
+        </aside>
+      </div>
+    </div>
+    <div class="panel4" id="p-emodel" role="tabpanel" aria-labelledby="tab-emodel" hidden>
+      <div id="eModels"></div>
+    </div>
+    <div class="panel4" id="p-eresults" role="tabpanel" aria-labelledby="tab-eresults" hidden>
+      <div class="card2">
+        <div class="chead"><h3>Estimates</h3><button type="button" class="help" data-help="inference" aria-label="What is an estimate entry?" aria-expanded="false">?</button></div>
+        <p class="sub">Each entry, run through the model you selected for its app.</p>
+        <div class="scroll"><table class="dt" id="eTable"></table></div>
+        <div class="actions" style="margin-top:12px"><button class="btn btn-navy" type="button" disabled>Estimate run times</button>
+          <span class="updated">Running the estimates comes next.</span></div>
+      </div>
     </div>
   </div>
 </div></section>
-
-<footer><div class="wrap foot-grid">
-  <div><strong>iScheduler</strong><br>Automated planning and scheduling of compute jobs. A research project.</div>
-  <div>Profiling runs feed the<br>runtime and memory estimators.</div>
-  <div>The Ohio State University<br>Computer Science and Engineering</div>
-</div></footer>
+<div class="toast" id="toast" role="status"></div>
 <script>
-/* Profiling.
-   A Tapis app is a versioned container with an entrypoint. Its appArgs are the
-   named parameters we sweep. Docker exposes them after the image ref; an
-   Apptainer/Singularity image exposes them after the runscript. Either way the
-   Jobs service appends appArgs to the container's own entrypoint -- so parsing
-   the app means reading its appArgs, not guessing at a raw command string.
+/* Profiling, on one page:
+     1 Configure  - pick an app, set up a sweep, tick systems/queues, add it to the plan
+     2 Review     - the whole plan, checked by the server, submitted together
+     3 Jobs       - every sweep and TAPIS job, live
+     4 Data       - per app: executions and how long they took
+   The HARP server holds the TAPIS token, turns each sweep x queue into TAPIS
+   jobs (one per parameter combination), tracks them and merges the results.
 
-   Batch jobs only: submit and wait, no human in the loop. Such jobs are either
-   compute-bound or I/O-bound; both just run to completion. */
+   An app is ready for HARP when its TAPIS notes carry a "harp" block:
+     {"label","entrypoint","command":"python3 x.py {a} {b}","workdir",
+      "params":[{"name","arg","kind","default"}]} */
 
-// --- mock registry: three apps, as requested ------------------------------
-// appArgs mirror the Tapis shape {name, arg, inputMode, notes, kind}.
-// "kind" is our hint for how the value should be swept (numeric vs string).
-const APPS = [
-  {
-    id: 'tensorflow-classifier',
-    version: '0.3.1',
-    label: 'TensorFlow classifier',
-    runtime: 'SINGULARITY',
-    image: 'docker://tapis/tf-classifier:0.3.1',
-    entrypoint: 'classifier_trainer.py',
-    profiled: true,
-    appArgs: [
-      {name:'model',      arg:'--model_type', kind:'string', values:['resnet50']},
-      {name:'batch size', arg:'--batch_size', kind:'int',    values:['128']},
-      {name:'epochs',     arg:'--train_epochs', kind:'int',  values:['90']},
-      {name:'dtype',      arg:'--dtype',      kind:'string', values:['float32']},
-      {name:'gpus',       arg:'--num_gpus',   kind:'int',    values:['1']}
-    ],
-    jobs: [
-      {uuid:'c1a2-tf-8841', name:'tf resnet50 b128', state:'FINISHED', when:'3d ago',
-       args:{'--batch_size':'128','--dtype':'float32','--num_gpus':'1'}},
-      {uuid:'c1a2-tf-8830', name:'tf resnet50 b64',  state:'FINISHED', when:'3d ago',
-       args:{'--batch_size':'64','--dtype':'float32','--num_gpus':'1'}},
-      {uuid:'c1a2-tf-8798', name:'tf resnet50 bf16', state:'FINISHED', when:'5d ago',
-       args:{'--batch_size':'128','--dtype':'bfloat16','--num_gpus':'2'}}
-    ]
-  },
-  {
-    id: 'yolo-train',
-    version: '8.2.0',
-    label: 'Ultralytics YOLO',
-    runtime: 'SINGULARITY',
-    image: 'docker://tapis/yolo-train:8.2.0',
-    entrypoint: 'yolo_train.py',
-    profiled: true,
-    appArgs: [
-      {name:'weights', arg:'--weights', kind:'string', values:['yolov8l.pt']},
-      {name:'batch',   arg:'--batch',   kind:'int',    values:['16']},
-      {name:'imgsz',   arg:'--imgsz',   kind:'int',    values:['640']},
-      {name:'epochs',  arg:'--epochs',  kind:'int',    values:['100']},
-      {name:'amp',     arg:'--amp',     kind:'string', values:['True']}
-    ],
-    jobs: [
-      {uuid:'b7f3-yolo-2201', name:'yolov8l 640',  state:'FINISHED', when:'1d ago',
-       args:{'--batch':'16','--imgsz':'640','--amp':'True'}},
-      {uuid:'b7f3-yolo-2180', name:'yolov8l 896',  state:'FINISHED', when:'2d ago',
-       args:{'--batch':'8','--imgsz':'896','--amp':'True'}}
-    ]
-  },
-  {
-    id: 'megadetector',
-    version: '5.0',
-    label: 'MegaDetector',
-    runtime: 'DOCKER',
-    image: 'docker.io/microsoft/megadetector:5.0',
-    entrypoint: 'run_detector_batch.py',
-    profiled: false,
-    appArgs: [
-      {name:'model file', arg:'--detector_file', kind:'string', values:['md_v5a.0.0.pt']},
-      {name:'batch',      arg:'--batch',   kind:'int',    values:['4']},
-      {name:'imgsz',      arg:'--imgsz',   kind:'int',    values:['1280']},
-      {name:'threshold',  arg:'--threshold', kind:'float', values:['0.2']}
-    ],
-    jobs: []
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $ = id => document.getElementById(id);
+async function api(path, opts = {}) {
+  const res = await fetch(path, {...opts, headers: {'Content-Type': 'application/json'},
+    body: opts.body ? JSON.stringify(opts.body) : undefined});
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw Object.assign(new Error(data.detail || res.statusText), {status: res.status});
+  return data;
+}
+function toast(msg){ const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2600); }
+// Kept per TAPIS user (and tenant), so someone else logging in on this browser never sees your plan.
+let USERKEY = '', ME_USER = '';
+const store = {get(k, d){ try { return JSON.parse(localStorage.getItem(k + USERKEY)) ?? d; } catch (e) { return d; } },
+               set(k, v){ try { localStorage.setItem(k + USERKEY, JSON.stringify(v)); } catch (e) {} }};
+const initials = s => s.split(/[\s_-]+/).filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+const median = xs => { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b), m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+const fmtS = v => v == null ? '–' : v < 1 ? (v * 1000).toFixed(v < 0.01 ? 2 : 1) + ' ms' : v < 10 ? v.toFixed(2) + ' s'
+                : v < 600 ? v.toFixed(1) + ' s' : (v / 60).toFixed(1) + ' min';
+const fmtMem = mb => mb >= 1024 ? Math.round(mb / 1024) + ' GB' : mb + ' MB';
+const fmtMin = m => !m || m < 0 ? '–' : m >= 1440 ? +(m / 1440).toFixed(1) + ' d' : m >= 60 ? +(m / 60).toFixed(1) + ' h' : m + ' min';
+const ago = iso => { if (!iso) return ''; const m = Math.round((Date.now() - new Date(iso)) / 60000);
+  return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' d ago'; };
+
+let APPS = [], SYSTEMS = [], CAMPS = [], JOBS = [];
+let panel = 'configure', jobsTimer = null, badgeTimer = null;
+
+/* =================================================================== data */
+// The server reads each app's sweep parameters from its TAPIS notes.
+function toApp(a, runsByApp){
+  return {id: a.id, version: a.version, label: a.label || a.id, runtime: a.runtime || 'SINGULARITY', image: a.image || '',
+    command: a.command || '', workdir: a.workdir || '', runs: runsByApp[a.id] || 0,
+    params_from: a.params_from || null, defaults: a.defaults || {}, description: a.description || '',
+    params: (a.params || []).map(p => ({name: p.name, arg: p.arg || '', kind: p.kind || 'string', def: String(p.default ?? '')}))};
+}
+async function loadApps(){
+  const [apps, camps] = await Promise.all([api('/api/tapis/apps'), api('/api/campaigns')]);
+  CAMPS = camps;
+  const runsByApp = {};
+  for (const c of camps) for (const id of c.app_ids || []) runsByApp[id] = (runsByApp[id] || 0) + (c.result ? c.result.rows : 0);
+  APPS = apps.filter(a => a.role !== 'build').map(a => toApp(a, runsByApp))   // the build app is not profiled.sort((x, y) => x.label.localeCompare(y.label));
+}
+const appName = id => (APPS.find(a => a.id === id) || {}).label || id;
+const qlist = s => s.queues && s.queues.length ? s.queues : [{name: '', default: true}];
+const qkey = (s, q) => s.id + '|' + (q.name || '');
+const isGpu = q => q.gpu ?? /gpu/i.test((q.name || '') + ' ' + (q.description || '') + ' ' + (q.hpc_queue || ''));
+function queueByKey(k){ for (const s of SYSTEMS) for (const q of qlist(s)) if (qkey(s, q) === k) return {s, q}; return null; }
+let ALLOC = store.get('harp-alloc', {});      // system id -> scheduler options, e.g. "-A PAS2271"
+async function loadSystems(){
+  const [execs, all] = await Promise.all([api('/api/tapis/exec-systems'), api('/api/tapis/systems').catch(() => [])]);
+  SYSTEMS = execs.filter(s => s.enabled !== false);
+  const storage = [...new Map([...SYSTEMS, ...all].map(s => [s.id, s])).values()];
+  $('storeSys').innerHTML = storage.map(s => `<option value="${esc(s.id)}">${esc(s.id)}${s.host ? ' · ' + esc(s.host) : ''}${
+    s.can_exec === false ? ' (storage)' : ''}</option>`).join('');
+  $('moveSys').innerHTML = '<option value="">Don\'t copy</option>' + $('storeSys').innerHTML;
+  const saved = store.get('harp-launch', {});
+  if (saved.storeSys) $('storeSys').value = saved.storeSys;
+  if (saved.store) $('store').value = saved.store;
+  if (saved.moveSys) { $('moveSys').value = saved.moveSys; $('movePath').value = saved.movePath || ''; $('moveDet').open = true; }
+}
+/* ============================================================ 1. configure */
+// Cores per job default to the queue's max cores per node (1 if TAPIS gives no limit).
+const defCores = q => (q && q.max_cores > 0) ? q.max_cores : 1;
+// Each ticked queue has one or more hardware configurations: {cores, mem_gb, minutes}.
+// null means "auto": cores = queue max, memory = 4 GB per core, minutes = runs per job x timeout + 10.
+// Every configuration is a separate TAPIS target (always 1 node).
+const cap = (v, mx) => mx > 0 ? Math.min(v, mx) : v;
+const newCfg = () => ({cores: null, mem_gb: null, minutes: null});
+const cfgCores = (q, c) => cap(c.cores || defCores(q), q.max_cores);
+const autoMemMb = (q, c) => cap(Math.max(4096, cfgCores(q, c) * 4096), q.max_memory_mb);
+const cfgMemMb = (q, c) => c.mem_gb ? cap(c.mem_gb * 1024, q.max_memory_mb) : autoMemMb(q, c);
+const autoMin = (q, sw) => cap(sw.timeout * sw.reps + 10, q.max_minutes);
+const cfgMin = (q, c, sw) => c.minutes ? cap(c.minutes, q.max_minutes) : autoMin(q, sw);
+const qOf = k => (queueByKey(k) || {q: {}}).q;
+function cfgsOf(sw, k){
+  if (!sw.configs) sw.configs = {};
+  if (!sw.configs[k] || !sw.configs[k].length)   // plans saved before configurations: keep their cores
+    sw.configs[k] = [{...newCfg(), cores: (sw.cores && sw.cores[k]) || null}];
+  return sw.configs[k];
+}
+const nTargets = sw => sw.queues.reduce((n, k) => n + cfgsOf(sw, k).length, 0);
+const cfgText = (q, c, sw) => `${cfgCores(q, c)} cores · ${fmtMem(cfgMemMb(q, c))} · ${fmtMin(cfgMin(q, c, sw))}`;
+const OPEN = new Set();   // queue rows whose configurations are expanded
+// The sweep being edited. Queues and cores per queue are part of it.
+let app = null, SW = null, PLAN = store.get('harp-plan', []), planSeq = PLAN.reduce((n, p) => Math.max(n, p.id), 0);
+const values = st => { const raw = (st.raw || '').trim(); if (!raw) return [];
+  return st.mode === 'list' ? raw.split(',').map(x => x.trim()).filter(Boolean) : [raw]; };
+const combosOf = (a, sw) => a.params.reduce((n, p) => n * Math.max(1, values(sw.params[p.name]).length), 1);
+
+function freshSweep(a, keep){
+  const n = PLAN.filter(p => p.app.id === a.id).length + 1;
+  return {name: keep ? nextName(keep.name) : (n === 1 ? 'sd' : 'sweep-' + n), run_type: keep ? keep.run_type : 'SD',
+    reps: keep ? keep.reps : 1, timeout: keep ? keep.timeout : 20,
+    params: keep ? JSON.parse(JSON.stringify(keep.params)) : Object.fromEntries(a.params.map(p => [p.name, {mode: 'single', raw: p.def}])),
+    queues: keep ? [...keep.queues] : [], configs: keep ? JSON.parse(JSON.stringify(keep.configs || {})) : {}};
+}
+function nextName(name){
+  const used = new Set(PLAN.filter(p => app && p.app.id === app.id).map(p => p.sweep.name));
+  if (!used.has(name)) return name;
+  const base = name.replace(/-\d+$/, ''); let i = 2; while (used.has(`${base}-${i}`)) i++; return `${base}-${i}`;
+}
+function sweepProblem(a, sw){
+  if (!a.command) return "This app doesn't declare its sweep parameters yet.";
+  if (!/^[A-Za-z0-9][A-Za-z0-9_.-]{0,30}$/.test(sw.name)) return 'Sweep name: letters, digits, - _ . (max 31).';
+  if (PLAN.some(p => p.app.id === a.id && p.sweep.name === sw.name)) return `The plan already has a sweep "${sw.name}" for this app.`;
+  for (const p of a.params) {
+    const v = values(sw.params[p.name]);
+    if (!v.length) return `Give "${p.name}" a value.`;
+    if ((p.kind === 'int' || p.kind === 'float') && v.some(x => isNaN(+x))) return `"${p.name}" needs numbers.`;
   }
-];
-
-const HINT = { single:'one fixed value', list:'comma-separated values' };
-
-let TARGETS = [], chosen = new Set();
-let tab = 'profiled', currentApp = null;
-let SWEEP = {};   // arg name -> {mode, raw}
-
-/* ---- data ---------------------------------------------------------- */
-function parseCSV(t){
-  const rows=[];let row=[],f='',q=false;
-  for(let i=0;i<t.length;i++){const c=t[i];
-    if(q){if(c==='"'&&t[i+1]==='"'){f+='"';i++;}else if(c==='"')q=false;else f+=c;}
-    else if(c==='"')q=true;else if(c===','){row.push(f);f='';}
-    else if(c==='\n'){row.push(f);rows.push(row);row=[];f='';}else if(c!=='\r')f+=c;}
-  if(f||row.length){row.push(f);rows.push(row);}
-  if(!rows.length)return[];const h=rows.shift();
-  return rows.filter(r=>r.length>1).map(r=>Object.fromEntries(h.map((k,i)=>[k,(r[i]??'').trim()])));
-}
-async function loadTargets(){
-  try{const r=await fetch('hardware_targets.csv');if(!r.ok)throw 0;
-    TARGETS=parseCSV(await r.text());}
-  catch(e){if(typeof EMBEDDED!=='undefined')TARGETS=EMBEDDED.hardware_targets||[];}
-  TARGETS=TARGETS.filter(t=>t.queue_state==='UP'&&t.limits_complete==='true'&&t.gpu_model);
-  const seen=new Set();
-  for(const t of TARGETS){const g=t.gpu_model;if(!seen.has(g)){seen.add(g);chosen.add(tkey(t));}}
-}
-const tkey=t=>[t.center_code,t.system_code,t.queue_name,t.node_type_fingerprint].join('|');
-
-/* ---- sweep expansion ---------------------------------------------- */
-function expand(mode, raw){
-  raw=(raw||'').trim();
-  if(!raw) return [];
-  if(mode==='list') return raw.split(',').map(x=>x.trim()).filter(Boolean);
-  return [raw];   // single
-}
-function sweptValues(a){
-  const st=SWEEP[a.name]||{mode:'single',raw:a.values[0]};
-  return expand(st.mode, st.raw);
-}
-function designSize(){
-  return currentApp.appArgs.reduce((n,a)=>{
-    const v=sweptValues(a); return n * Math.max(1, v.length);
-  },1);
+  if (!(sw.reps >= 1) || !(sw.timeout >= 1)) return 'Repetitions and timeout must be at least 1.';
+  if (!sw.queues.length) return 'Tick at least one queue.';
+  for (const k of sw.queues) { const q = qOf(k), seen = new Set();
+    for (const c of cfgsOf(sw, k)) { const t = cfgText(q, c, sw); if (seen.has(t)) return `${k.replace('|', ' / ')} has two identical configurations.`; seen.add(t); } }
+  return '';
 }
 
-/* ---- render: app lists -------------------------------------------- */
-function renderTabs(){
-  const prof=APPS.filter(a=>a.profiled), un=APPS.filter(a=>!a.profiled);
-  document.getElementById('cProfiled').textContent=prof.length;
-  document.getElementById('cUnprofiled').textContent=un.length;
+function renderApps(){
+  if (!APPS.length) { $('appSel').innerHTML = '<option>No TAPIS apps found for your account</option>'; $('appSel').disabled = true; return; }
+  $('appSel').disabled = false;
+  $('appSel').innerHTML = (app ? '' : '<option value="">Choose an app…</option>') +
+    APPS.map(a => `<option value="${esc(a.id)}" ${app && app.id === a.id ? 'selected' : ''}>${esc(a.label)} (${esc(a.id)} v${esc(a.version)})</option>`).join('');
+  if (!app) { $('appMeta').innerHTML = ''; return; }
+  const d = app.defaults || {}, dv = [d.cores_per_node && `${d.cores_per_node} core${d.cores_per_node === 1 ? '' : 's'}`, d.memory_mb && fmtMem(d.memory_mb), d.max_minutes && fmtMin(d.max_minutes)].filter(Boolean);
+  const from = {notes: "the app's TAPIS notes (harp block)", command: 'the {placeholders} in its command'}[app.params_from] || 'nothing yet';
+  const rows = [['Container', `${app.image || '–'} (${app.runtime})`], ['Command', app.command || 'not declared'], ['Work folder', app.workdir || '–'],
+    ['Parameters', `${app.params.map(p => p.name).join(', ') || 'none'}, from ${from}`],
+    ['App defaults', dv.length ? dv.join(' · ') + ' per job; your queue settings below replace them' : 'none; your queue settings below are used'],
+    ['Output', 'each job writes to /TapisOutput in the container; TAPIS copies it to the results location you pick on Review'],
+    ['Profiled', app.runs ? app.runs.toLocaleString() + ' runs so far' : 'not yet']];
+  $('appMeta').innerHTML = `<details class="bdet appfrom"><summary>From the TAPIS app ${esc(app.id)} v${esc(app.version)}</summary>
+    <dl class="fromapp">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl></details>`;
 }
-function renderList(){
-  const apps=APPS.filter(a=>tab==='profiled'?a.profiled:!a.profiled);
-  document.getElementById('listTitle').textContent =
-    tab==='profiled'?'Profiled applications':'Register for profiling';
-  document.getElementById('listSub').textContent =
-    tab==='profiled'
-      ? 'Apps with completed jobs. Pick one to extend its profiling sweep.'
-      : 'Registered Tapis apps not yet profiled. Pick one to profile it.';
-  const box=document.getElementById('applist');
-  if(!apps.length){box.innerHTML='<div class="empty" style="border:none">'
-    +(tab==='profiled'?'No apps profiled yet. Switch to the other tab to start one.'
-                      :'Every registered app has been profiled.')+'</div>';return;}
-  box.innerHTML=apps.map(a=>`
-    <button class="appitem" data-id="${a.id}"
-       aria-current="${currentApp&&currentApp.id===a.id}">
-      <span class="ic">${a.label.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</span>
-      <span><span class="an">${a.label}</span>
-        <span class="am">${a.id} &middot; v${a.version}</span></span>
-      <span class="ar">
-        <span class="rt ${a.runtime==='DOCKER'?'dock':'sing'}">${
-          a.runtime==='DOCKER'?'Docker':'Apptainer'}</span><br>
-        <span class="pill ${a.profiled?'done':'none'}" style="margin-top:5px;display:inline-block">${
-          a.profiled?a.jobs.length+' jobs':'not profiled'}</span>
-      </span>
-    </button>`).join('');
-  box.querySelectorAll('.appitem').forEach(b=>
-    b.addEventListener('click',()=>selectApp(b.dataset.id)));
+$('appSel').addEventListener('change', () => { if ($('appSel').value) pickApp($('appSel').value); });
+function pickApp(id, sweep){
+  app = APPS.find(a => a.id === id); if (!app) return;
+  SW = sweep || freshSweep(app);
+  renderApps();
+  $('sweepCard').hidden = $('sysCard').hidden = false;
+  renderSweepForm(); renderSystems();
+  updateCurrent();
 }
+function renderSweepForm(){
+  $('swName').value = SW.name; $('swType').value = SW.run_type; $('swReps').value = SW.reps; $('swTimeout').value = SW.timeout;
+  if (!app.command) { $('argTable').innerHTML = `<div class="empty">This app doesn't declare its sweep parameters in TAPIS yet.
+      Add a <code>harp</code> block (command and parameters) to the app's TAPIS notes; the app notebook does this.</div>`; return; }
+  if (!app.params.length) { $('argTable').innerHTML = '<div class="empty">This app has no sweep parameters.</div>'; return; }
+  $('argTable').innerHTML = `<div class="ahead"><div>Parameter</div><div>How to vary</div><div>Value(s)</div></div>` +
+    app.params.map(p => { const st = SW.params[p.name], c = values(st).length;
+      return `<div class="arow">
+        <div><span class="aname">${esc(p.name)}</span><span class="aflag">${esc(p.arg)} &middot; ${esc(p.kind)}</span></div>
+        <div><select class="modesel" data-p="${esc(p.name)}" aria-label="How to vary ${esc(p.name)}">
+          <option value="single" ${st.mode === 'single' ? 'selected' : ''}>single</option>
+          <option value="list" ${st.mode === 'list' ? 'selected' : ''}>list</option></select></div>
+        <div><input class="valin" data-p="${esc(p.name)}" value="${esc(st.raw)}" placeholder="${esc(p.def)}" aria-label="${esc(p.name)} values">
+          <span class="vhint">${st.mode === 'list' ? 'comma-separated' : 'one value'} &middot; <b>${c}</b> value${c === 1 ? '' : 's'}</span></div></div>`; }).join('');
+  $('argTable').querySelectorAll('.modesel').forEach(el => el.addEventListener('change', () => {
+    SW.params[el.dataset.p].mode = el.value; renderSweepForm(); updateCurrent(); }));
+  $('argTable').querySelectorAll('.valin').forEach(el => {
+    el.addEventListener('input', () => { SW.params[el.dataset.p].raw = el.value; updateCurrent(); });
+    el.addEventListener('change', () => { renderSweepForm(); updateCurrent(); }); });
+}
+function limits(q){
+  const parts = [q.max_cores ? `${q.max_cores} cores/node` : '', q.max_memory_mb ? `${fmtMem(q.max_memory_mb)}` : '',
+    q.max_minutes > 0 ? `${fmtMin(q.max_minutes)} limit` : '', q.max_jobs_per_user > 0 ? `${q.max_jobs_per_user} jobs/user` : ''].filter(Boolean);
+  return parts.length ? parts.map(x => `<span>${esc(x)}</span>`).join('') : '<span>no limits set</span>';
+}
+function cfgBlock(k, q){
+  const lim = (v, f) => v > 0 ? ` · max ${f(v)}` : '';
+  return `<div class="cfgh"><div>#</div><div>Cores / job${lim(q.max_cores, x => x)}</div><div>Memory (GB)${lim(q.max_memory_mb, x => Math.round(x / 1024))}</div>
+      <div>Max minutes${lim(q.max_minutes, x => x)}</div><div></div></div>` +
+    cfgsOf(SW, k).map((c, i) => `<div class="cfgr">
+      <span class="ix">${i + 1}</span>
+      <div><input type="number" min="1" ${q.max_cores ? `max="${q.max_cores}"` : ''} data-k="${esc(k)}" data-i="${i}" data-f="cores"
+        value="${cfgCores(q, c)}" aria-label="Cores per job, configuration ${i + 1}"></div>
+      <div><input type="number" min="1" ${q.max_memory_mb ? `max="${Math.round(q.max_memory_mb / 1024)}"` : ''} data-k="${esc(k)}" data-i="${i}" data-f="mem_gb"
+        class="${c.mem_gb ? '' : 'auto'}" value="${Math.round(cfgMemMb(q, c) / 1024)}" aria-label="Memory in GB, configuration ${i + 1}">
+        <span class="hint" data-hint="mem">${c.mem_gb ? 'set by you' : 'auto: 4 GB per core'}</span></div>
+      <div><input type="number" min="1" ${q.max_minutes > 0 ? `max="${q.max_minutes}"` : ''} data-k="${esc(k)}" data-i="${i}" data-f="minutes"
+        class="${c.minutes ? '' : 'auto'}" value="${cfgMin(q, c, SW)}" aria-label="Max minutes, configuration ${i + 1}">
+        <span class="hint" data-hint="min">${c.minutes ? 'set by you' : minHint()}</span></div>
+      ${cfgsOf(SW, k).length > 1 ? `<button class="rowbtn danger" type="button" data-cfgrm="${esc(k)}" data-i="${i}">Remove</button>` : '<span></span>'}
+    </div>`).join('') +
+    `<button class="cfgadd" type="button" data-cfgadd="${esc(k)}">+ Add configuration</button>
+     <p class="cfgnote">1 node per job${isGpu(q) ? ' · GPU enabled in the container (--nv)' : ''}. Clear memory or minutes to go back to auto.</p>`;
+}
+const minHint = () => `auto: ${SW.reps} run${SW.reps === 1 ? '' : 's'}/job × ${SW.timeout} min + 10`;
+function renderSystems(){
+  if (!SYSTEMS.length) { $('systems').innerHTML = '<div class="empty">No TAPIS execution systems found for your account.</div>'; return; }
+  $('systems').innerHTML = SYSTEMS.map(s => `
+    <div class="syshead"><b>${esc(s.id)}</b><span class="am">${esc(s.host || '')}</span>
+      ${s.batch_scheduler ? `<span class="rt sing">${esc(s.batch_scheduler)}</span>` : ''}
+      ${(s.runtimes || []).map(r => `<span class="rt dock">${esc(r)}</span>`).join(' ')}
+      ${s.error ? `<span class="loginerr">queues unavailable: ${esc(s.error)}</span>` : ''}
+      <span class="acct"><label for="acct-${esc(s.id)}">Account</label><input id="acct-${esc(s.id)}" class="alloc" data-sys="${esc(s.id)}"
+        value="${esc(ALLOC[s.id] || '')}" placeholder="${(((s.job_working_dir || '').match(/\/(P[A-Z]{2}\d{3,5})\b/) || [])[1] && '-A ' + s.job_working_dir.match(/\/(P[A-Z]{2}\d{3,5})\b/)[1]) || (/tacc/i.test(s.host || '') ? '-A TACC-project' : '-A PAS0000')}" autocomplete="off"
+        title="The allocation this system's jobs are charged to (a scheduler option). Leave empty if the system needs none."></span></div>
+    ${qlist(s).map(q => { const k = qkey(s, q), on = SW.queues.includes(k), open = on && OPEN.has(k), id = 'q-' + k.replace(/[^A-Za-z0-9_-]/g, '_');
+      return `<div class="qrow cfgrow${on ? ' on' : ''}" data-row="${esc(k)}">
+        <input type="checkbox" class="qpick" id="${esc(id)}" data-k="${esc(k)}" ${on ? 'checked' : ''}>
+        <label class="qn" for="${esc(id)}">${esc(q.name || 'default queue')}${q.default ? ' <span class="pill done">default</span>' : ''}${isGpu(q) ? ' <span class="pill none">GPU</span>' : ''}
+          ${q.description ? `<span class="am">${esc(q.description)}</span>` : q.hpc_queue && q.hpc_queue !== q.name ? `<span class="am">scheduler: ${esc(q.hpc_queue)}</span>` : ''}</label>
+        <span class="lim">${limits(q)}</span>
+        ${on ? `<button class="qtog" type="button" data-tog="${esc(k)}" aria-expanded="${open}">${togText(k)}<span class="ch">▾</span></button>` : '<span></span>'}
+        ${open ? `<div class="qcfg">${cfgBlock(k, q)}</div>` : ''}
+      </div>`; }).join('')}`).join('');
+  const sys = $('systems');
+  sys.querySelectorAll('.alloc').forEach(el => el.addEventListener('input', () => {
+    ALLOC[el.dataset.sys] = el.value.trim(); store.set('harp-alloc', ALLOC); }));
+  sys.querySelectorAll('.qpick').forEach(el => el.addEventListener('change', () => {
+    const k = el.dataset.k;
+    SW.queues = el.checked ? [...new Set([...SW.queues, k])] : SW.queues.filter(x => x !== k);
+    if (el.checked) { cfgsOf(SW, k); OPEN.add(k); } else OPEN.delete(k);
+    renderSystems(); updateCurrent(); }));
+  sys.querySelectorAll('[data-tog]').forEach(b => b.addEventListener('click', () => {
+    const k = b.dataset.tog; OPEN.has(k) ? OPEN.delete(k) : OPEN.add(k); renderSystems(); }));
+  sys.querySelectorAll('[data-cfgadd]').forEach(b => b.addEventListener('click', () => {
+    const list = cfgsOf(SW, b.dataset.cfgadd); list.push({...list[list.length - 1]}); renderSystems(); updateCurrent();
+    const last = sys.querySelectorAll(`.cfgr input[data-k="${CSS.escape(b.dataset.cfgadd)}"][data-f="cores"]`); if (last.length) last[last.length - 1].focus(); }));
+  sys.querySelectorAll('[data-cfgrm]').forEach(b => b.addEventListener('click', () => {
+    cfgsOf(SW, b.dataset.cfgrm).splice(+b.dataset.i, 1); renderSystems(); updateCurrent(); }));
+  sys.querySelectorAll('.cfgr input').forEach(el => el.addEventListener('change', () => {
+    const k = el.dataset.k, q = qOf(k), c = cfgsOf(SW, k)[+el.dataset.i], f = el.dataset.f, v = Math.round(+el.value);
+    const mx = {cores: q.max_cores, mem_gb: q.max_memory_mb ? Math.round(q.max_memory_mb / 1024) : 0, minutes: q.max_minutes}[f];
+    c[f] = el.value.trim() === '' || !(v >= 1) ? null : cap(v, mx);
+    refreshCfg(k); updateCurrent(); }));
+}
+function togText(k){ const q = qOf(k), list = cfgsOf(SW, k);
+  return list.length === 1 ? esc(cfgText(q, list[0], SW)) : `${list.length} configurations`; }
+// Recompute the auto values in place, so typing doesn't lose focus.
+function refreshCfg(k){
+  const q = qOf(k), row = [...$('systems').querySelectorAll('[data-row]')].find(r => r.dataset.row === k); if (!row) return;
+  const list = cfgsOf(SW, k);
+  row.querySelectorAll('.cfgr').forEach((r, i) => { const c = list[i]; if (!c) return;
+    const set = (f, val, auto, hint, txt) => { const el = r.querySelector(`input[data-f="${f}"]`);
+      if (document.activeElement !== el) el.value = val; el.classList.toggle('auto', auto);
+      if (hint) r.querySelector(`[data-hint="${hint}"]`).textContent = txt; };
+    set('cores', cfgCores(q, c), false);
+    set('mem_gb', Math.round(cfgMemMb(q, c) / 1024), !c.mem_gb, 'mem', c.mem_gb ? 'set by you' : 'auto: 4 GB per core');
+    set('minutes', cfgMin(q, c, SW), !c.minutes, 'min', c.minutes ? 'set by you' : minHint()); });
+  const t = row.querySelector('.qtog'); if (t) t.innerHTML = togText(k) + '<span class="ch">▾</span>';
+}
+function updateCurrent(){
+  if (!app) return;
+  const n = app.command ? combosOf(app, SW) : 0, q = nTargets(SW);
+  $('swCombos').className = 'pill ' + (n ? 'done' : 'none');
+  $('swCombos').textContent = `${n} combination${n === 1 ? '' : 's'}`;
+  $('curJobs').textContent = (n * Math.max(q, 1)).toLocaleString();
+  $('curJobsLbl').textContent = q ? `TAPIS jobs on ${q} hardware configuration${q === 1 ? '' : 's'}` : 'combinations · tick a queue';
+  const swept = app.params.filter(p => values(SW.params[p.name]).length > 1);
+  $('curFormula').innerHTML = !app.command ? 'Declare this app\'s sweep parameters in TAPIS to profile it.'
+    : (swept.length ? swept.map(p => `<b>${values(SW.params[p.name]).length}</b> ${esc(p.name)}`).join(' &times; ') : 'every parameter fixed')
+      + ` &times; <b>${q}</b> configuration${q === 1 ? '' : 's'} &times; <b>${SW.reps}</b> rep${SW.reps === 1 ? '' : 's'}`;
+  const prob = sweepProblem(app, SW);
+  $('swErr').textContent = prob && prob !== 'Tick at least one queue.' ? prob : '';
+  $('addBtn').disabled = !!prob; $('addMsg').className = 'launchmsg'; $('addMsg').textContent = prob;
+}
+['swName', 'swType', 'swReps', 'swTimeout'].forEach(id => $(id).addEventListener('input', () => {
+  if (!SW) return;
+  SW.name = $('swName').value.trim(); SW.run_type = $('swType').value;
+  SW.reps = Math.max(1, +$('swReps').value || 0); SW.timeout = Math.max(1, +$('swTimeout').value || 0);
+  SW.queues.forEach(refreshCfg); updateCurrent(); }));
 
-/* ---- select an app ------------------------------------------------- */
-function selectApp(id){
-  currentApp=APPS.find(a=>a.id===id);
-  SWEEP={};
-  for(const a of currentApp.appArgs)
-    SWEEP[a.name]={mode:'single', raw:a.values[0]};
-  document.getElementById('emptyPanel').style.display='none';
-  document.getElementById('designPanel').style.display='block';
-  document.getElementById('budget').style.display='block';
-  document.getElementById('jobPanel').style.display =
-    currentApp.jobs.length ? 'block' : 'none';
-  renderList(); renderEntrypoint(); renderJobs(); renderArgTable();
-  renderHw(); recompute();
+/* ---- the plan (a cart of sweeps, kept across reloads in this browser) ---- */
+function addToPlan(){
+  if (!app || sweepProblem(app, SW)) return;
+  PLAN.push({id: ++planSeq, app: {id: app.id, version: app.version, label: app.label, command: app.command,
+             workdir: app.workdir, params: app.params}, sweep: JSON.parse(JSON.stringify(SW))});
+  savePlan();
+  const added = SW.name;
+  SW = freshSweep(app, SW);   // keep the settings so the next sweep is a small edit away
+  renderSweepForm(); renderSystems(); updateCurrent();
+  $('addMsg').className = 'launchmsg ok'; $('addMsg').textContent = `Added "${added}". Change values to add another sweep.`;
 }
-
-/* ---- entrypoint check --------------------------------------------- */
-function renderEntrypoint(){
-  const a=currentApp;
-  const isDocker=a.runtime==='DOCKER';
-  // Docker: args follow the image's CMD/ENTRYPOINT. Apptainer: args follow the
-  // image's %runscript. Tapis appends appArgs either way; we surface which.
-  const invoke=isDocker
-    ? `docker run ${a.image} <span class="ok">&lt;appArgs&gt;</span>`
-    : `apptainer run ${a.image} <span class="ok">&lt;appArgs&gt;</span>`;
-  document.getElementById('epBlock').innerHTML=`
-    <div class="eprow"><span class="eplbl">Runtime</span>
-      <code>${a.runtime}</code>
-      <span class="${isDocker?'':'ok'}" style="font-size:12px">${
-        isDocker?'Docker &mdash; runs on cloud/VM exec systems'
-               :'Apptainer &mdash; runs on HPC exec systems'}</span></div>
-    <div class="eprow"><span class="eplbl">Image</span><code>${a.image}</code></div>
-    <div class="eprow"><span class="eplbl">Entrypoint</span>
-      <code>${a.entrypoint}</code></div>
-    <div class="eprow"><span class="eplbl">Job type</span>
-      <code>BATCH</code><span class="ok" style="font-size:12px">submit and wait</span></div>
-    <div class="eprow"><span class="eplbl">Invocation</span><code>${invoke}</code></div>`;
+function savePlan(){ store.set('harp-plan', PLAN); renderPlan(); }
+const planJobs = p => combosOf(p.app, p.sweep) * nTargets(p.sweep);
+function renderPlan(){
+  const jobs = PLAN.reduce((n, p) => n + planJobs(p), 0);
+  $('bPlan').textContent = PLAN.length; $('bPlan').classList.toggle('zero', !PLAN.length);
+  $('planTotals').textContent = PLAN.length ? `${PLAN.length} sweep${PLAN.length === 1 ? '' : 's'} · ${jobs} jobs` : '';
+  $('toReview').disabled = !PLAN.length;
+  $('planList').innerHTML = PLAN.length ? PLAN.map(p => `<div class="pitem">
+      <div class="pt"><b>${esc(p.app.label)} &middot; ${esc(p.sweep.name)}</b><span class="pm">${planJobs(p)} jobs</span></div>
+      <div class="pm">${esc(p.sweep.run_type)} &middot; ${esc(p.sweep.queues.map(k => k.replace('|', '/') + (cfgsOf(p.sweep, k).length > 1 ? ` ×${cfgsOf(p.sweep, k).length}` : '')).join(', '))}</div>
+      <div class="pa"><button type="button" data-edit="${p.id}">Edit</button><button type="button" class="rm" data-rm="${p.id}">Remove</button></div></div>`).join('')
+    : '<div class="planempty">Add sweeps here, then review and submit them together.</div>';
+  $('planList').querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => {
+    PLAN = PLAN.filter(p => p.id !== +b.dataset.rm); savePlan(); updateCurrent(); }));
+  $('planList').querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => {
+    const p = PLAN.find(x => x.id === +b.dataset.edit); PLAN = PLAN.filter(x => x !== p); savePlan();
+    if (APPS.some(a => a.id === p.app.id)) { show('configure'); pickApp(p.app.id, p.sweep); toast(`Editing "${p.sweep.name}". Add it to the plan again when done.`); }
+  }));
 }
+$('addBtn').addEventListener('click', addToPlan);
+$('toReview').addEventListener('click', () => show('review'));
 
-/* ---- jobs under the app ------------------------------------------- */
+/* ============================================================ 2. review */
+// What the user picked. The server fills in everything else from TAPIS (command, defaults, limits).
+function planBody(){
+  const ids = new Set(PLAN.flatMap(p => p.sweep.queues.map(k => k.split('|')[0])));
+  const move = $('moveSys').value && $('movePath').value.trim() ? {system_id: $('moveSys').value, path: $('movePath').value.trim()} : null;
+  return {storage: {system_id: $('storeSys').value, path: $('store').value.trim()}, move_to: move,
+    allocations: Object.fromEntries([...ids].filter(id => ALLOC[id]).map(id => [id, ALLOC[id]])),
+    sweeps: PLAN.map(p => { const sw = p.sweep;
+      return {app_id: p.app.id, name: sw.name, run_type: sw.run_type, repetitions: sw.reps, timeout_min: sw.timeout,
+        params: Object.fromEntries(p.app.params.map(x => [x.name, values(sw.params[x.name])])),
+        targets: sw.queues.flatMap(k => { const [system_id, queue] = k.split('|');
+          return cfgsOf(sw, k).map(c => ({system_id, queue: queue || null, cores: c.cores || null,
+            memory_mb: c.mem_gb ? c.mem_gb * 1024 : null, max_minutes: c.minutes || null})); })}; })};
+}
+let CHECK = null;
+// A default results folder: the last one used, else <system's TAPIS job folder>/<user>/harp_runs,
+// else on OSC /fs/scratch/<project>/<user>/harp_runs from the account.
+function defaultStore(){
+  if ($('store').value.trim() || !PLAN.length) return;
+  for (const id of [...new Set(PLAN.flatMap(p => p.sweep.queues.map(k => k.split('|')[0])))]) {
+    const s = SYSTEMS.find(x => x.id === id) || {}, proj = (ALLOC[id] || '').match(/-A\s*(\S+)/);
+    const jwd = s.job_working_dir || '';
+    // the system's own job folder in TAPIS (e.g. /fs/scratch/PAS2271), when it is a plain path
+    if (jwd.startsWith('/') && !jwd.includes('$')) { $('storeSys').value = id; $('store').value = `${jwd.replace(/\/$/, '')}/${ME_USER}/harp_runs`; return; }
+    if (proj && /osc\.edu/i.test(s.host || '')) { $('storeSys').value = id; $('store').value = `/fs/scratch/${proj[1]}/${ME_USER}/harp_runs`; return; }
+  }
+}
+async function renderReview(){
+  $('doneCard').hidden = true; $('submitCard').hidden = !PLAN.length;
+  defaultStore();
+  const rows = PLAN.flatMap(p => { const all = p.sweep.queues.flatMap(k => cfgsOf(p.sweep, k).map(c => ({k, c})));
+    return all.map(({k, c}, i) => ({p, k, c, i, first: i === 0, span: all.length})); });
+  const jobs = PLAN.reduce((n, p) => n + planJobs(p), 0);
+  const runs = PLAN.reduce((n, p) => n + planJobs(p) * p.sweep.reps, 0);
+  const hours = PLAN.reduce((n, p) => n + planJobs(p) * p.sweep.reps * p.sweep.timeout / 60, 0);
+  $('reviewTotals').textContent = PLAN.length ? `${jobs} TAPIS jobs · ${runs} runs · up to ${Math.round(hours)} node-hours` : '';
+  $('reviewTable').innerHTML = PLAN.length ? `<tr><th>App</th><th>Sweep</th><th>Type</th><th>Varies</th><th>System / queue</th>
+      <th class="num">Jobs</th><th class="num">Runs</th><th class="num">Cores</th><th class="num">Memory</th><th class="num">Time limit</th><th>Check</th><th></th></tr>` +
+    rows.map(({p, k, c, i, first, span}) => { const hit = queueByKey(k), q = hit ? hit.q : {}, n = combosOf(p.app, p.sweep);
+      const varies = p.app.params.filter(x => values(p.sweep.params[x.name]).length > 1)
+        .map(x => `${x.name} ×${values(p.sweep.params[x.name]).length}`).join(', ') || 'fixed';
+      const lead = first ? `<td rowspan="${span}">${esc(p.app.label)}</td><td rowspan="${span}"><b>${esc(p.sweep.name)}</b></td>
+        <td rowspan="${span}">${esc(p.sweep.run_type)}</td><td rowspan="${span}" class="uuid">${esc(varies)}</td>` : '';
+      const tail = first ? `<td rowspan="${span}" class="chk" data-plan="${p.id}">checking&hellip;</td>
+        <td rowspan="${span}"><button class="rowbtn danger" data-rm="${p.id}" type="button">Remove</button></td>` : '';
+      const acct = ALLOC[k.split('|')[0]];
+      return `<tr>${lead}<td>${esc(k.replace('|', ' / '))}${isGpu(q) ? ' <span class="pill none">GPU</span>' : ''}
+        <span class="am" style="display:block">${acct ? esc(acct) : 'no account set (Configure)'}</span></td>
+        <td class="num">${n}</td><td class="num">${n * p.sweep.reps}</td><td class="num" data-t="${p.id}:${i}:c">${cfgCores(q, c)}</td><td class="num" data-t="${p.id}:${i}:m">${fmtMem(cfgMemMb(q, c))}</td>
+        <td class="num" data-t="${p.id}:${i}:t">${fmtMin(cfgMin(q, c, p.sweep))}</td>${tail}</tr>`; }).join('')
+    : `<tr><td class="updated">The plan is empty. Add sweeps on <button class="rowbtn" id="goCfg" type="button">Configure</button>.</td></tr>`;
+  const gc = $('goCfg'); if (gc) gc.addEventListener('click', () => show('configure'));
+  $('reviewTable').querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => {
+    PLAN = PLAN.filter(p => p.id !== +b.dataset.rm); savePlan(); renderReview(); }));
+  $('reviewErr').textContent = ''; CHECK = null; reviewReady();
+  if (!PLAN.length) return;
+  try {
+    const res = await api('/api/plan/preview', {method: 'POST', body: planBody()});
+    CHECK = res.sweeps;
+    const cell = k => $('reviewTable').querySelector(`[data-t="${k}"]`);
+    CHECK.forEach((r, i) => { const id = PLAN[i].id, td = $('reviewTable').querySelector(`.chk[data-plan="${id}"]`);
+      if (td) td.innerHTML = r.ok ? '<span class="st done">ready</span>' : `<span class="st bad" title="${esc(r.error)}">fix</span>`;
+      (r.targets || []).forEach((t, j) => {   // what each job will really ask TAPIS for
+        const set = (f, v) => { const el = cell(`${id}:${j}:${f}`); if (el) el.textContent = v; };
+        set('c', t.cores_per_node); set('m', fmtMem(t.memory_mb)); set('t', fmtMin(t.max_minutes)); }); });
+    const bad = CHECK.map((r, i) => r.ok ? '' : `${PLAN[i].sweep.name}: ${r.error}`).filter(Boolean);
+    $('reviewErr').textContent = bad.join(' · ');
+  } catch (e) { $('reviewErr').textContent = 'Could not check the plan: ' + e.message; }
+  reviewReady();
+}
+function reviewReady(){
+  const path = $('store').value.trim();
+  const prob = !PLAN.length ? 'The plan is empty.' : !path ? 'Choose a results folder.'
+    : !path.startsWith('/') ? 'The results folder must be an absolute path, starting with /.'
+    : $('moveSys').value && !$('movePath').value.trim().startsWith('/') ? 'Give the copy location an absolute folder, or choose "Don\'t copy".'
+    : !CHECK ? 'Checking the plan…' : CHECK.some(r => !r.ok) ? 'Fix the sweeps marked “fix”.'
+    : !$('confirm').checked ? 'Tick the box to confirm.' : '';
+  $('submitBtn').disabled = !!prob; $('submitMsg').textContent = prob;
+}
+['store', 'storeSys', 'moveSys', 'movePath'].forEach(id => $(id).addEventListener('input', reviewReady));
+$('confirm').addEventListener('change', reviewReady);
+$('submitBtn').addEventListener('click', async () => {
+  const btn = $('submitBtn'); btn.disabled = true; btn.textContent = 'Submitting…';
+  store.set('harp-launch', {storeSys: $('storeSys').value, store: $('store').value.trim(),
+                            moveSys: $('moveSys').value, movePath: $('movePath').value.trim()});
+  try {
+    const made = await api('/api/plan/submit', {method: 'POST', body: planBody()});
+    PLAN = []; savePlan(); $('confirm').checked = false;
+    $('submitCard').hidden = true; $('doneCard').hidden = false;
+    $('reviewTable').innerHTML = ''; $('reviewTotals').textContent = '';
+    $('doneTitle').textContent = `Submitted ${made.length} sweep${made.length === 1 ? '' : 's'}`;
+    $('doneSub').textContent = `${made.reduce((n, c) => n + c.jobs_total, 0)} TAPIS jobs are on their way. Follow them on Jobs.`;
+    $('doneTable').innerHTML = `<tr><th>Sweep</th><th class="num">TAPIS jobs</th><th>Results folder</th><th></th></tr>` +
+      made.map(c => `<tr><td><b>${esc(c.name)}</b></td><td class="num">${c.jobs_total}</td>
+        <td class="uuid">${esc(c.storage.system_id)}:${esc(c.campaign_dir)}</td>
+        <td><button class="rowbtn" data-sweep="${esc(c.id)}" type="button">Jobs &rarr;</button></td></tr>`).join('');
+    $('doneTable').querySelectorAll('[data-sweep]').forEach(b => b.addEventListener('click', () => { FSET.sweep = b.dataset.sweep; show('jobs'); }));
+    refreshBadge(); loadApps().then(renderApps).catch(() => {});
+  } catch (e) {
+    $('submitMsg').textContent = e.status === 401 ? 'Your session expired. Log in again, then submit.' : e.message;
+  } finally { btn.textContent = 'Submit plan'; reviewReady(); }
+});
+
+/* ================================================================ 3. jobs */
+const SWEEP_ST = {DONE:['done','done'], DONE_WITH_ERRORS:['warn','done with errors'], RUNNING:['run','running'],
+  FINALIZING:['run','merging data'], WAITING_FOR_LOGIN:['warn','paused'], FAILED:['bad','failed'], CANCELLED:['bad','cancelled']};
+const JOB_ST = {NOT_SUBMITTED:['wait','waiting'], PENDING:['run','submitting'], PROCESSING_INPUTS:['run','submitting'],
+  STAGING_INPUTS:['run','staging'], STAGING_JOB:['run','staging'], SUBMITTING_JOB:['run','submitting'], QUEUED:['warn','queued'],
+  RUNNING:['run','running'], ARCHIVING:['run','copying output'], BLOCKED:['warn','blocked'], PAUSED:['warn','paused'],
+  FINISHED:['done','finished'], FAILED:['bad','failed'], SUBMIT_FAILED:['bad','not submitted'], CANCELLED:['bad','cancelled']};
+const pill = (map, s) => { const [c, t] = map[s] || ['run', String(s).toLowerCase()]; return `<span class="st ${c}">${esc(t)}</span>`; };
+const ACTIVE = ['RUNNING', 'WAITING_FOR_LOGIN', 'FINALIZING'];
+const isDone = s => s === 'FINISHED', isFail = s => ['FAILED', 'SUBMIT_FAILED', 'CANCELLED'].includes(s);
+const group = s => isDone(s) ? 'finished' : isFail(s) ? 'failed' : s === 'NOT_SUBMITTED' ? 'waiting' : 'active';
+const dur = j => j.submitted_at && j.ended_at ? (new Date(j.ended_at) - new Date(j.submitted_at)) / 1000
+               : j.submitted_at && group(j.status) === 'active' ? (Date.now() - new Date(j.submitted_at)) / 1000 : null;
+const fmtDur = s => s == null ? '–' : s < 90 ? Math.round(s) + ' s' : s < 5400 ? Math.round(s / 60) + ' min' : (s / 3600).toFixed(1) + ' h';
+const FSET = {kind: '', app: '', status: '', system: '', sweep: ''};
+let jSort = 'submitted_at', jDir = -1, confirmCancel = null;
+
+async function loadJobs(){
+  [CAMPS, JOBS] = await Promise.all([api('/api/campaigns'), api('/api/jobs')]);
+  renderJobs();
+  $('jUpdated').textContent = 'updated ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'});
+  clearTimeout(jobsTimer);
+  if (panel === 'jobs' && JOBS.some(j => ['active', 'waiting'].includes(group(j.status)))) jobsTimer = setTimeout(() => loadJobs().catch(() => {}), 8000);
+}
+function bar(f, x, total){ const r = total - f - x, p = n => (100 * n / Math.max(1, total)).toFixed(1) + '%';
+  return `<div class="prog" title="${f} finished, ${x} failed, ${r} left"><i class="f" style="width:${p(f)}"></i><i class="x" style="width:${p(x)}"></i><i class="r" style="width:${p(r)}"></i></div>`; }
 function renderJobs(){
-  const sel=document.getElementById('jobPick');
-  const jl=document.getElementById('jobList');
-  if(!currentApp.jobs.length){ sel.innerHTML=''; jl.innerHTML=''; return; }
-  sel.innerHTML='<option value="">&mdash; start from app defaults &mdash;</option>'
-    + currentApp.jobs.map(j=>`<option value="${j.uuid}">${j.name} (${j.uuid})</option>`).join('');
-  jl.innerHTML=currentApp.jobs.map(j=>`
-    <div class="jobrow"><code>${j.uuid}</code>
-      <span>${j.name}</span>
-      <span class="jm">${j.state} &middot; ${j.when}</span></div>`).join('');
-  sel.onchange=()=>{
-    const j=currentApp.jobs.find(x=>x.uuid===sel.value);
-    if(!j) return;
-    // Seed each arg's single value from the chosen job's recorded args.
-    for(const a of currentApp.appArgs){
-      if(a.arg in j.args) SWEEP[a.name]={mode:'single', raw:j.args[a.arg]};
-    }
-    renderArgTable(); recompute();
-  };
+  const g = {}; for (const j of JOBS) g[group(j.status)] = (g[group(j.status)] || 0) + 1;
+  $('jActive').textContent = g.active || 0; $('jWait').textContent = g.waiting || 0;
+  $('jDone').textContent = g.finished || 0; $('jFail').textContent = g.failed || 0;
+  setBadge((g.active || 0) + (g.waiting || 0));
+
+  // sweeps
+  const moveNote = c => { const m = (c.result || {}).move; if (!m) return '';
+    const t = {PENDING: 'copy queued to', COPYING: 'copying to', DONE: 'copied to', FAILED: 'copy failed:'}[m.status] || m.status;
+    return `<span class="updated" style="display:block;color:${m.status === 'FAILED' ? '#A23A3A' : ''}">${esc(t)} ${esc(m.system_id)}:${esc(m.path)}${m.error ? ' (' + esc(m.error) + ')' : ''}</span>`; };
+  const sweepRuns = id => { const js = JOBS.filter(j => j.sweep_id === id), tot = js.reduce((n, j) => n + (j.runs_total || 0), 0);
+    return tot ? `${js.reduce((n, j) => n + runsDone(j), 0).toLocaleString()} / ${tot.toLocaleString()}` : '–'; };
+  const camps = [...CAMPS].sort((a, b) => (ACTIVE.includes(b.status) - ACTIVE.includes(a.status)) || b.created_at.localeCompare(a.created_at));
+  $('sweepTable').innerHTML = camps.length ? `<tr><th>Sweep</th><th>App</th><th>Status</th><th>Progress</th><th>Hardware</th><th class="num">Runs done</th><th>Started</th><th></th></tr>` +
+    camps.map(c => { const k = c.job_counts || {}, f = k.FINISHED || 0, x = (k.FAILED || 0) + (k.SUBMIT_FAILED || 0) + (k.CANCELLED || 0);
+      const hw = (c.hardware || []).map(h => h.system_id + (h.queue ? '/' + h.queue : '') + (h.cores_per_node ? ` (${h.cores_per_node}c)` : '')).join(', ');
+      const act = ACTIVE.includes(c.status)
+        ? (confirmCancel === c.id ? `<button class="rowbtn danger" data-cancel="${esc(c.id)}" type="button">Confirm cancel</button>`
+                                  : `<button class="rowbtn danger" data-ask="${esc(c.id)}" type="button">Cancel</button>`) : '';
+      return `<tr class="${FSET.sweep === c.id ? 'sel' : ''}"><td><button class="rowbtn" data-only="${esc(c.id)}" type="button"><b>${esc(c.name)}</b></button></td>
+        <td>${esc((c.app_ids || []).map(appName).join(', '))}</td><td>${pill(SWEEP_ST, c.status)}</td>
+        <td>${bar(f, x, c.jobs_total)}<span class="updated">${f}/${c.jobs_total} finished${x ? ` · ${x} failed` : ''}</span>${moveNote(c)}</td>
+        <td class="uuid">${esc(hw)}</td><td class="num">${sweepRuns(c.id)}</td>
+        <td class="updated">${esc(ago(c.created_at))}</td><td>${act}</td></tr>`; }).join('')
+    : '<tr><td class="updated">No sweeps yet. Configure one and submit the plan.</td></tr>';
+  $('sweepTable').querySelectorAll('[data-only]').forEach(b => b.addEventListener('click', () => {
+    FSET.sweep = FSET.sweep === b.dataset.only ? '' : b.dataset.only; renderJobs(); }));
+  $('sweepTable').querySelectorAll('[data-ask]').forEach(b => b.addEventListener('click', () => {
+    confirmCancel = b.dataset.ask; renderJobs(); setTimeout(() => { if (confirmCancel === b.dataset.ask) { confirmCancel = null; renderJobs(); } }, 5000); }));
+  $('sweepTable').querySelectorAll('[data-cancel]').forEach(b => b.addEventListener('click', () => cancelSweep(b.dataset.cancel)));
+
+  // filters
+  const opts = (vals, label, all) => `<option value="">${all}</option>` + [...new Set(vals)].filter(Boolean).sort()
+    .map(v => `<option value="${esc(v)}">${esc(label(v))}</option>`).join('');
+  $('fApp').innerHTML = opts(JOBS.map(j => j.app_id), appName, 'All apps');
+  $('fSystem').innerHTML = opts(JOBS.map(j => j.system_id), v => v, 'All systems');
+  $('fSweep').innerHTML = opts(JOBS.map(j => j.sweep_id), id => (CAMPS.find(c => c.id === id) || {}).name || id, 'All sweeps');
+  for (const [id, k] of [['fKind', 'kind'], ['fApp', 'app'], ['fStatus', 'status'], ['fSystem', 'system'], ['fSweep', 'sweep']]) $(id).value = FSET[k];
+
+  // jobs table
+  const val = (j, k) => k === 'app' ? appName(j.app_id) : k === 'where' ? j.system_id + '/' + (j.queue || '')
+    : k === 'duration' ? (dur(j) ?? -1) : k === 'runs' ? (j.runs_total ? runsDone(j) / j.runs_total : -1) : k === 'status' ? ['active', 'waiting', 'failed', 'finished'].indexOf(group(j.status)) + j.status : (j[k] ?? '');
+  const rows = JOBS.filter(j => (!FSET.kind || (j.kind || 'profiling') === FSET.kind) && (!FSET.app || j.app_id === FSET.app) && (!FSET.system || j.system_id === FSET.system)
+      && (!FSET.sweep || j.sweep_id === FSET.sweep) && (!FSET.status || group(j.status) === FSET.status))
+    .sort((a, b) => { const x = val(a, jSort), y = val(b, jSort); return (x < y ? -1 : x > y ? 1 : 0) * jDir; });
+  const COLS = [['kind', 'Job type'], ['app', 'App'], ['sweep', 'Sweep / build'], ['name', 'TAPIS job'], ['where', 'System / queue'], ['run_type', 'Run type'],
+                ['status', 'Status'], ['runs', 'Runs done'], ['submitted_at', 'Submitted'], ['duration', 'Duration'], ['uuid', 'TAPIS UUID']];
+  $('jobsTable').innerHTML = `<tr>${COLS.map(([k, l]) => `<th${k === 'duration' || k === 'runs' ? ' class="num"' : ''}><button class="sortb" data-k="${k}">${l}${jSort === k ? (jDir > 0 ? ' ▲' : ' ▼') : ''}</button></th>`).join('')}</tr>` +
+    (rows.length ? rows.slice(0, 500).map(j => `<tr><td>${j.kind === 'build' ? '<span class="pill done">build</span>' : '<span class="pill none">profiling</span>'}</td><td>${esc(appName(j.app_id))}</td><td>${esc(j.sweep)}</td><td class="uuid">${esc(j.name)}</td>
+      <td>${esc(j.system_id)}${j.queue ? ` <span class="am">/ ${esc(j.queue)}</span>` : ''}${j.cores_per_node ? ` <span class="am">· ${j.cores_per_node} cores${j.memory_mb ? ' · ' + esc(fmtMem(j.memory_mb)) : ''}</span>` : ''}</td><td>${esc(j.run_type)}</td>
+      <td>${pill(JOB_ST, j.status)}${j.error ? `<div class="err">${esc(j.error)}</div>` : ''}</td>
+      <td class="num">${runsCell(j)}</td>
+      <td class="updated">${esc(ago(j.submitted_at))}</td><td class="num">${fmtDur(dur(j))}</td><td class="uuid">${esc(j.uuid || '–')}</td></tr>`).join('')
+    : `<tr><td colspan="11" class="updated">${JOBS.length ? 'No jobs match these filters.' : 'No TAPIS jobs yet.'}</td></tr>`);
+  $('jobsTable').querySelectorAll('.sortb').forEach(b => b.addEventListener('click', () => {
+    if (jSort === b.dataset.k) jDir = -jDir; else { jSort = b.dataset.k; jDir = ['submitted_at', 'duration'].includes(jSort) ? -1 : 1; }
+    renderJobs(); }));
+  $('jCount').textContent = `${Math.min(rows.length, 500)} of ${JOBS.length} jobs shown` + (FSET.sweep ? ' · filtered to one sweep' : '');
+}
+// Runs done in a job: the runner's progress file, read by the server through TAPIS while the job runs.
+function runsDone(j){ return j.progress && j.progress.runs_done != null ? j.progress.runs_done : 0; }
+function runsCell(j){
+  if (!j.runs_total) return '–';
+  const p = j.progress, known = p && p.runs_done != null, d = runsDone(j), bad = known ? p.runs_failed || 0 : 0;
+  const txt = known || ['waiting', 'active'].includes(group(j.status)) ? `${d} / ${j.runs_total}` : `– / ${j.runs_total}`;
+  const tip = p && p.current ? `running ${p.current}` : known && p.updated_at ? `updated ${ago(p.updated_at)}` : 'no progress reported yet';
+  return `<span title="${esc(tip)}">${txt}</span>${bad ? ` <span class="am">· ${bad} failed</span>` : ''}${known ? bar(d - bad, bad, j.runs_total) : ''}`;
+}
+[['fKind', 'kind'], ['fApp', 'app'], ['fStatus', 'status'], ['fSystem', 'system'], ['fSweep', 'sweep']].forEach(([id, k]) =>
+  $(id).addEventListener('change', () => { FSET[k] = $(id).value; renderJobs(); }));
+async function cancelSweep(id){
+  confirmCancel = null; $('sweepErr').textContent = '';
+  try { await api(`/api/campaigns/${encodeURIComponent(id)}/cancel`, {method: 'POST'}); toast('Sweep cancelled.'); await loadJobs(); }
+  catch (e) { $('sweepErr').textContent = 'Could not cancel: ' + e.message; }
+}
+function setBadge(n){ $('bActive').textContent = n; $('bActive').classList.toggle('zero', !n); }
+async function refreshBadge(){
+  clearTimeout(badgeTimer);
+  try { const jobs = await api('/api/jobs'); setBadge(jobs.filter(j => ['active', 'waiting'].includes(group(j.status))).length); } catch (e) {}
+  badgeTimer = setTimeout(refreshBadge, 20000);
 }
 
-/* ---- the per-arg sweep table -------------------------------------- */
-function renderArgTable(){
-  const rows=currentApp.appArgs.map(a=>{
-    const st=SWEEP[a.name];
-    const opts=['single','list']
-      .map(m=>`<option value="${m}" ${st.mode===m?'selected':''}>${m}</option>`).join('');
-    const count=sweptValues(a).length;
-    return `<div class="arow">
-      <div><span class="aname">${a.name}</span>
-        <span class="aflag">${a.arg} &middot; ${a.kind}</span></div>
-      <div><select class="modesel" data-n="${a.name}">${opts}</select></div>
-      <div><input class="valin" data-n="${a.name}" value="${st.raw}"
-             placeholder="${a.values[0]}">
-        <span class="vhint">${HINT[st.mode]} &middot; <b>${count}</b> value${
-          count===1?'':'s'}</span></div>
-    </div>`;
-  }).join('');
-  document.getElementById('argTable').innerHTML=
-    `<div class="ahead"><div>Parameter</div><div>How to vary</div><div>Value(s)</div></div>`+rows;
-
-  document.querySelectorAll('.modesel').forEach(s=>
-    s.addEventListener('change',()=>{
-      SWEEP[s.dataset.n].mode=s.value; renderArgTable(); recompute();
-    }));
-  document.querySelectorAll('.valin').forEach(inp=>
-    inp.addEventListener('input',()=>{
-      SWEEP[inp.dataset.n].raw=inp.value; updateCounts(); recompute();
-    }));
+/* ========================================================= 4. profiled data */
+let dApp = null, prof = null, dFilter = 'all', dShown = 200, allCols = false, dSort = null, dDir = 1;
+function renderDataApps(){
+  const withData = [...new Set(CAMPS.flatMap(c => c.app_ids || []))];
+  $('dataEmpty').hidden = !!withData.length;
+  if (!withData.length) { $('dataApps').innerHTML = $('bApp').innerHTML = ''; $('dataAppMeta').innerHTML = ''; $('dataBody').hidden = true;
+    $('bSweeps').innerHTML = '<p class="updated">No profiled sweeps yet. Profile an app in HARP Generate first.</p>'; return; }
+  if (!dApp || !withData.includes(dApp)) dApp = withData[0];
+  const mine = id => CAMPS.filter(c => (c.app_ids || []).includes(id));
+  $('dataApps').innerHTML = $('bApp').innerHTML = withData.map(id => `<option value="${esc(id)}" ${dApp === id ? 'selected' : ''}>${esc(appName(id))} (${esc(id)})</option>`).join('');
+  $('bApp').value = dApp;
+  const cs = mine(dApp), live = cs.filter(c => ACTIVE.includes(c.status)).length;
+  $('dataAppMeta').innerHTML = `<span><b>Sweeps</b> ${cs.length}${live ? ` (${live} running)` : ''}</span>`;
 }
-function updateCounts(){
-  currentApp.appArgs.forEach((a,i)=>{
-    const hint=document.querySelectorAll('.vhint')[i];
-    if(hint){const c=sweptValues(a).length;
-      hint.innerHTML=`${HINT[(SWEEP[a.name]||{}).mode||'single']} &middot; <b>${c}</b> value${c===1?'':'s'}`;}
+for (const id of ['dataApps', 'bApp'])
+  $(id).addEventListener('change', () => { dApp = $(id).value; dFilter = 'all'; dShown = 200; renderDataApps(); loadProfile(); });
+async function loadProfile(){
+  if (!dApp) return;
+  try { prof = await api('/api/apps/' + encodeURIComponent(dApp) + '/profile'); }
+  catch (e) { $('dMissing').textContent = 'Could not load the data: ' + e.message; return; }
+  $('dataBody').hidden = false; renderProfile();
+  $('dUpdated').textContent = 'updated ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+}
+/* ---- build phase: sweeps -> (cleaned) training data -> models, as a TAPIS job or here ---- */
+// "Trained on": All (every training set) or Advanced (pick them).
+function setMode(advanced){
+  $('bSets').hidden = !advanced;
+  $('bSetAllL').classList.toggle('on', !advanced); $('bSetAdvL').classList.toggle('on', advanced);
+}
+for (const id of ['bSetAll', 'bSetAdv']) $(id).addEventListener('change', () => {
+  const advanced = $('bSetAdv').checked; setMode(advanced);
+  if (!advanced) { Object.keys((BOPTS || {}).training_sets || {}).forEach(t => BSETS.add(t));
+    $('bSets').querySelectorAll('input').forEach(el => { el.checked = true; el.closest('.bopt').classList.add('on'); }); }
+  buildReady();
+});
+const BSEL = {};                 // app id -> ids of the sweeps picked for training
+let bCheck = null, bTimer = null, bPoll = null, BUILDS = [], BOPTS = null;
+const BMOD = new Set(), BSETS = new Set();
+const RT_ORDER = ['SD', 'FS', 'test_data'];
+async function renderBuild(){
+  if (!BOPTS) { try { BOPTS = await api('/api/build-options'); } catch (e) { BOPTS = {models: {}, training_sets: {}, build_app: null}; }
+    Object.keys(BOPTS.models).forEach(m => BMOD.add(m)); Object.keys(BOPTS.training_sets).forEach(t => BSETS.add(t)); }
+  const camps = prof.campaigns || [];
+  $('bAppName').textContent = $('bAppName2').textContent = 'for ' + appName(dApp);
+  const counts = {}; for (const r of prof.rows) counts[r.campaign] = (counts[r.campaign] || 0) + 1;
+  if (!BSEL[dApp]) BSEL[dApp] = new Set(camps.filter(c => !ACTIVE.includes(c.status) && (c.result ? c.result.rows : counts[c.name])).map(c => c.id));
+  const sel = BSEL[dApp];
+  $('bSweeps').innerHTML = camps.length ? camps.map(c => { const on = sel.has(c.id), n = c.result ? c.result.rows : (counts[c.name] || 0);
+    const hw = [...new Set((c.hardware || []).map(h => h.system_id + (h.queue ? '/' + h.queue : '')))].join(', ');
+    return `<label class="bsw${on ? ' on' : ''}"><input type="checkbox" data-bs="${esc(c.id)}" ${on ? 'checked' : ''}>
+      <b>${esc(c.name)}</b>${pill(SWEEP_ST, c.status)}
+      <span class="am">${esc((c.run_types || []).join(', ') || '?')} · ${n.toLocaleString()} runs · ${esc(hw)}</span></label>`; }).join('')
+    : '<p class="updated">No sweeps for this app yet.</p>';
+  $('bSweeps').querySelectorAll('[data-bs]').forEach(el => el.addEventListener('change', () => {
+    el.checked ? sel.add(el.dataset.bs) : sel.delete(el.dataset.bs);
+    el.closest('.bsw').classList.toggle('on', el.checked); checkTraining(); }));
+  const opt = (set, key, title, sub) => `<label class="bopt${set.has(key) ? ' on' : ''}"><input type="checkbox" value="${esc(key)}" ${set.has(key) ? 'checked' : ''}>
+    <b>${esc(title)}</b>${sub ? `<span class="am">${esc(sub)}</span>` : ''}</label>`;
+  const MODEL_SUB = {LR: 'fast, simple baseline', NN: 'fits curves; needs more data', DTR: 'handles thresholds and jumps'};
+  $('bModels').innerHTML = Object.entries(BOPTS.models).map(([k, v]) => opt(BMOD, k, `${k} · ${v}`, MODEL_SUB[k])).join('');
+  const SET_SUB = {SD: 'Only the scaled-down runs. Fastest and cheapest; may predict full-scale runs less well.',
+    'SD+25FS': 'Scaled-down runs plus a quarter of the full-scale runs.',
+    'SD+50FS': 'Scaled-down runs plus half of the full-scale runs.',
+    'SD+75FS': 'Scaled-down runs plus three quarters of the full-scale runs. Usually the best at full scale.'};
+  $('bSets').innerHTML = Object.entries(BOPTS.training_sets).map(([k, v]) => opt(BSETS, k, v, SET_SUB[k])).join('')
+    + '<p class="bnote">The full-scale runs not used for training check the model while it trains; the test_data runs score it afterwards.</p>';
+  const all = Object.keys(BOPTS.training_sets), advanced = BSETS.size !== all.length;
+  $('bSetAll').checked = !advanced; $('bSetAdv').checked = advanced; setMode(advanced);
+  for (const [id, set] of [['bModels', BMOD], ['bSets', BSETS]])
+    $(id).querySelectorAll('input').forEach(el => el.addEventListener('change', () => {
+      el.checked ? set.add(el.value) : set.delete(el.value); el.closest('.bopt').classList.toggle('on', el.checked); buildReady(); }));
+  if (!$('bSys').options.length) {
+    $('bSys').innerHTML = $('storeSys').innerHTML;
+    const saved = store.get('harp-build-dest', null) || store.get('harp-launch', {});
+    if (saved.storeSys) $('bSys').value = saved.storeSys;
+    if (!$('bPath').value && saved.store) $('bPath').value = saved.store;
+    const ba = BOPTS.build_app, queues = SYSTEMS.flatMap(s => qlist(s).map(q => ({s, q})));
+    $('bRun').innerHTML = queues.map(({s, q}) => `<option value="tapis|${esc(s.id)}|${esc(q.name || '')}" ${ba ? '' : 'disabled'}>${esc(s.id)} / ${esc(q.name || 'default')} · TAPIS job</option>`).join('')
+      + '<option value="local">This computer (the HARP server)</option>';
+    $('bRun').value = ba && saved.run && [...$('bRun').options].some(o => o.value === saved.run && !o.disabled) ? saved.run
+      : ba && queues.length ? $('bRun').options[0].value : 'local';
+  }
+  checkTraining(); loadBuilds();
+}
+function checkTraining(){
+  clearTimeout(bTimer); bTimer = setTimeout(async () => {
+    const app = dApp, ids = [...(BSEL[app] || [])];
+    bCheck = null; buildReady();
+    if (!ids.length) { $('bReady').className = 'bready no'; $('bReady').textContent = 'Pick at least one sweep.'; $('bStd').innerHTML = ''; return; }
+    $('bReady').className = 'bready'; $('bReady').textContent = 'Checking the data…';
+    try {
+      const r = await api('/api/apps/' + encodeURIComponent(app) + '/training-data', {method: 'POST', body: {sweeps: ids}});
+      if (app !== dApp) return;
+      bCheck = r; renderStd(r, ids);
+    } catch (e) { $('bReady').className = 'bready no'; $('bReady').textContent = 'Could not read the sweeps: ' + e.message; }
+    buildReady();
+  }, 250);
+}
+function renderStd(r, ids){
+  const n = t => (r.by_run_type[t] || 0).toLocaleString();
+  $('bReady').className = 'bready ' + (r.ready ? 'ok' : 'no');
+  $('bReady').innerHTML = r.ready ? `Ready: ${n('SD')} SD, ${n('FS')} FS and ${n('test_data')} test runs.`
+    : esc(r.problems.join('; ').replace(/^./, c => c.toUpperCase())) + '.';
+  const cov = RT_ORDER.map(t => { const k = r.by_run_type[t] || 0, ok = k >= r.minimum[t];
+    return `<div class="${ok ? 'ok' : 'no'}"><div class="v">${k.toLocaleString()}</div><div class="l">${esc(t)} · need ${r.minimum[t]}+</div></div>`; }).join('');
+  const code = xs => xs.map(x => `<code>${esc(x)}</code>`).join(' ');
+  const dropC = Object.entries(r.dropped_columns || {}), dropR = Object.entries(r.dropped_rows || {});
+  $('bStd').innerHTML = `<div class="cov">${cov}</div>
+    <p class="blist">Learns from ${r.varied_features.length ? code(r.varied_features) : 'nothing yet'}</p>
+    ${r.constant_columns.length ? `<p class="blist am">Same in every run (no signal): ${code(r.constant_columns)}</p>` : ''}
+    ${dropC.length ? `<p class="blist am">Left out (the pipeline needs every column filled): ${dropC.map(([c, why]) => `<code>${esc(c)}</code> (${esc(why)})`).join(', ')}</p>` : ''}
+    ${dropR.length ? `<p class="blist am">Runs left out: ${dropR.map(([why, k]) => `${k} (${esc(why)})`).join(', ')}</p>` : ''}
+    ${(r.unreadable || []).length ? `<p class="bprob">Could not read: ${esc(r.unreadable.map(m => m.campaign).join(', '))}</p>` : ''}
+    <button class="dlbtn" type="button" id="bCsv">Download training CSV</button>`;
+  $('bCsv').addEventListener('click', () => downloadFile('/api/apps/' + encodeURIComponent(dApp) + '/training-data.csv?sweeps=' +
+    encodeURIComponent(ids.join(',')), dApp + '_training.csv').catch(e => toast('Download failed: ' + e.message)));
+}
+function buildReady(){
+  const path = $('bPath').value.trim(), busy = BUILDS.some(b => ['QUEUED', 'RUNNING'].includes(b.status) && (b.where || {}).mode !== 'tapis');
+  const local = $('bRun').value === 'local';
+  const prob = !bCheck ? 'Waiting for the sweeps.' : !bCheck.ready ? 'Not enough data yet (step 1).'
+    : !BMOD.size || !BSETS.size ? 'Pick at least one model and one training set.'
+    : !$('bSys').value ? 'Pick where to save the models.' : !path.startsWith('/') ? 'Give an absolute folder, starting with /.'
+    : busy && local ? 'A build is already running on this computer.' : '';
+  $('buildBtn').disabled = !!prob;
+  $('bReady2').className = $('bReady').className; $('bReady2').innerHTML = $('bReady').innerHTML;
+  $('buildMsg').textContent = prob || (!BOPTS || BOPTS.build_app ? '' : 'Register the HARP build app (app notebook, APP = "build") to run builds as TAPIS jobs.');
+}
+['bPath', 'bSys', 'bRun'].forEach(id => $(id).addEventListener('input', buildReady));
+$('buildBtn').addEventListener('click', async () => {
+  const [mode, system_id, queue] = $('bRun').value.split('|');
+  const body = {sweeps: [...BSEL[dApp]], storage: {system_id: $('bSys').value, path: $('bPath').value.trim()},
+    models: [...BMOD], training_sets: [...BSETS],
+    run_on: mode === 'tapis' ? {mode, system_id, queue: queue || null, scheduler_options: ALLOC[system_id] || null} : {mode: 'local'}};
+  store.set('harp-build-dest', {storeSys: body.storage.system_id, store: body.storage.path, run: $('bRun').value});
+  $('buildBtn').disabled = true; $('buildMsg').textContent = 'Starting…';
+  try { await api('/api/apps/' + encodeURIComponent(dApp) + '/builds', {method: 'POST', body});
+        toast(mode === 'tapis' ? 'Build job submitted to TAPIS. It is listed under Generate → Jobs too.' : 'Build started on this computer.');
+        await loadBuilds(); refreshBadge(); show('btrained'); }
+  catch (e) { $('buildMsg').textContent = e.message; $('buildBtn').disabled = false; }
+});
+async function loadBuilds(){
+  clearTimeout(bPoll);
+  const app = dApp;
+  try { BUILDS = await api('/api/builds?app_id=' + encodeURIComponent(app)); } catch (e) { return; }
+  if (app !== dApp) return;
+  renderBuilds(); buildReady();
+  const live = BUILDS.filter(b => ['QUEUED', 'RUNNING'].includes(b.status)).length;
+  $('bBuilds').textContent = live || BUILDS.length; $('bBuilds').classList.toggle('zero', !BUILDS.length);
+  $('bBuilds').classList.toggle('live', !!live);
+  if (BUILD_PANELS.includes(panel) && live) bPoll = setTimeout(loadBuilds, 4000);
+}
+const fmtP = v => v == null ? '–' : (+v).toFixed(v < 10 ? 1 : 0) + '%';
+function renderBuilds(){
+  const BST = {QUEUED: ['wait', 'queued'], RUNNING: ['run', 'training'], DONE: ['done', 'done'], FAILED: ['bad', 'failed']};
+  if (!BUILDS.length) { $('bRuns').innerHTML = '<p class="updated">No models built for this app yet.</p>'; return; }
+  $('bRuns').innerHTML = BUILDS.slice(0, 6).map((b, i) => {
+    const w = b.where || {}, j = b.job;
+    const where = w.mode === 'tapis' ? `TAPIS job on ${esc(w.system_id)}${w.queue ? '/' + esc(w.queue) : ''}${j ? ` · ${pill(JOB_ST, j.status)}` : ''}` : 'on this computer';
+    const what = `${(b.models || []).join(', ')} · ${(b.training_sets || []).length} training set${(b.training_sets || []).length === 1 ? '' : 's'}`;
+    const top = [...b.metrics].filter(m => m.MAPE != null).sort((x, y) => x.MAPE - y.MAPE).slice(0, 6);
+    const best = b.best ? `<div class="best"><b>Best: ${esc(b.best.RegModel)}</b> trained on ${esc(b.best.DataSet)}${b.best.ADJ_FACTOR > 1 ? `, padded ×${(+b.best.ADJ_FACTOR).toFixed(2)}` : ''}
+        · off by <b>${fmtP(b.best.MAPE)}</b> on average on the test runs · too low for ${fmtP(b.best.UPP)} of them</div>` : '';
+    const table = top.length && i === 0 ? `<div class="scroll"><table class="dt"><tr><th>Model</th><th>Trained on</th><th class="num">Padding</th>
+        <th class="num">Avg error</th><th class="num">Too low</th><th class="num">MAE (s)</th></tr>` +
+      top.map(m => `<tr${m === top[0] ? ' class="sel"' : ''}><td><b>${esc(m.RegModel)}</b></td><td>${esc(m.DataSet)}</td>
+        <td class="num">${m.ADJ_FACTOR > 1 ? '×' + (+m.ADJ_FACTOR).toFixed(2) : '–'}</td><td class="num">${fmtP(m.MAPE)}</td>
+        <td class="num">${fmtP(m.UPP)}</td><td class="num">${m.MAE == null ? '–' : (+m.MAE).toPrecision(3)}</td></tr>`).join('') + '</table></div>' : '';
+    return `<div class="brun"><div class="bt"><b>${esc(b.name)}</b>${pill(BST, b.status)}<span class="updated">${esc(ago(b.created_at))} · ${esc(what)}</span></div>
+      <div class="bwhere">${where} · from ${b.sweeps.length} sweep${b.sweeps.length === 1 ? '' : 's'}, ${(b.report || {}).rows_out || 0} runs</div>
+      ${b.error ? `<p class="bprob">${esc(b.error)}</p>` : ''}${best}${table}
+      ${b.status === 'DONE' ? `<p class="blist am">${b.metrics.length} models saved to <code>${esc(b.storage.system_id)}:${esc(b.dest)}</code></p>` : ''}</div>`; }).join('');
+}
+
+function renderProfile(){
+  const P = prof, walls = P.rows.map(r => parseFloat(r.walltime)).filter(Number.isFinite);
+  const varied = P.columns.filter(c => /^run_/.test(c) && c !== 'run_config' && c !== 'run_type' && new Set(P.rows.map(r => r[c])).size > 1);
+  $('dExec').textContent = P.total_rows.toLocaleString();
+  $('dSys').textContent = new Set(P.rows.map(r => r.system).filter(Boolean)).size;
+  $('dParams').textContent = varied.length; $('dWall').textContent = fmtS(median(walls));
+  const types = {};
+  for (const r of P.rows) { const w = parseFloat(r.walltime); if (Number.isFinite(w)) (types[r.run_type || '?'] ||= []).push(w); }
+  const order = ['SD', 'FS', 'test_data', ...Object.keys(types).filter(t => !['SD', 'FS', 'test_data'].includes(t))].filter(t => types[t]);
+  $('typeTable').innerHTML = order.length ? `<tr><th>Run type</th><th class="num">Runs</th><th class="num">Fastest</th><th class="num">Median</th><th class="num">Slowest</th></tr>` +
+    order.map(t => `<tr><td><b>${esc(t)}</b></td><td class="num">${types[t].length}</td><td class="num">${fmtS(Math.min(...types[t]))}</td>
+      <td class="num">${fmtS(median(types[t]))}</td><td class="num">${fmtS(Math.max(...types[t]))}</td></tr>`).join('') : '<tr><td class="updated">No finished runs yet.</td></tr>';
+  const bySys = {};
+  for (const r of P.rows) { const w = parseFloat(r.walltime); if (Number.isFinite(w)) ((bySys[r.hardware || r.system || 'unknown'] ||= {})[r.run_type || '?'] ||= []).push(w); }
+  const sys = Object.keys(bySys).sort();
+  $('hwTable').innerHTML = sys.length ? `<tr><th>Hardware</th><th class="num">Runs</th>${order.map(t => `<th class="num">${esc(t)}</th>`).join('')}</tr>` +
+    sys.map(n => `<tr><td><b>${esc(n)}</b></td><td class="num">${Object.values(bySys[n]).flat().length}</td>${order.map(t =>
+      `<td class="num">${bySys[n][t] ? fmtS(median(bySys[n][t])) : '–'}</td>`).join('')}</tr>`).join('') : '<tr><td class="updated">No finished runs yet.</td></tr>';
+  const numSort = (a, b) => (isNaN(+a) || isNaN(+b)) ? String(a).localeCompare(String(b)) : +a - +b;
+  $('paramTables').innerHTML = varied.length ? varied.map(c => { const g = {};
+    for (const r of P.rows) { const w = parseFloat(r.walltime); if (Number.isFinite(w)) (g[r[c]] ||= []).push(w); }
+    return `<div><h4>${esc(c.replace(/^run_/, ''))}</h4><div class="scroll"><table class="dt"><tr><th>Value</th><th class="num">Runs</th><th class="num">Median</th></tr>
+      ${Object.keys(g).sort(numSort).map(v => `<tr><td><b>${esc(v)}</b></td><td class="num">${g[v].length}</td><td class="num">${fmtS(median(g[v]))}</td></tr>`).join('')}</table></div></div>`; }).join('')
+    : '<p class="updated">No parameter took more than one value yet.</p>';
+  const counts = {all: P.rows.length}; for (const r of P.rows) counts[r.run_type] = (counts[r.run_type] || 0) + 1;
+  $('dFilters').innerHTML = ['all', ...order].map(t => `<button class="fchip" data-f="${esc(t)}" aria-pressed="${dFilter === t}" type="button">${t === 'all' ? 'All' : esc(t)}<b>${counts[t] || 0}</b></button>`).join('');
+  $('dFilters').querySelectorAll('.fchip').forEach(b => b.addEventListener('click', () => { dFilter = b.dataset.f; dShown = 200; renderProfile(); }));
+  $('dMissing').textContent = P.missing.length ? 'Could not read data for: ' + P.missing.map(m => m.campaign).join(', ') : '';
+  renderExec(); renderBuild();
+}
+function renderExec(){
+  const P = prof;
+  let rows = P.rows.filter(r => dFilter === 'all' || r.run_type === dFilter);
+  const focus = ['system', 'run_type', ...P.columns.filter(c => /^run_/.test(c) && c !== 'run_config' && c !== 'run_type'),
+                 'sys_tot_cores_count', 'sys_gpu_name', 'walltime'].filter(c => P.columns.includes(c));
+  const cols = allCols ? P.columns : focus;
+  const numeric = c => c === 'walltime' || /^sys_.*(count|mhz|bytes|mb)$/.test(c) || P.rows.slice(0, 50).every(r => r[c] === '' || r[c] == null || !isNaN(+r[c]));
+  const label = c => ({walltime: 'time (s)', sys_tot_cores_count: 'cores', sys_gpu_name: 'gpu', run_config: 'run_config', run_type: 'run_type'})[c] || c.replace(/^run_/, '');
+  if (dSort && cols.includes(dSort)) { const n = numeric(dSort);
+    rows = [...rows].sort((x, y) => (n ? (+x[dSort]) - (+y[dSort]) : String(x[dSort] ?? '').localeCompare(String(y[dSort] ?? ''))) * dDir); }
+  $('dataTable').innerHTML = rows.length ? `<tr>${cols.map(c => `<th${numeric(c) ? ' class="num"' : ''}><button class="sortb" data-c="${esc(c)}">${esc(label(c))}${dSort === c ? (dDir > 0 ? ' ▲' : ' ▼') : ''}</button></th>`).join('')}</tr>` +
+    rows.slice(0, dShown).map(r => '<tr>' + cols.map(c => { let v = r[c] ?? '';
+      if (c === 'walltime' && v !== '') v = (+v).toFixed(3);
+      if (/_bytes$/.test(c) && v !== '' && !isNaN(+v)) v = (+v / 2 ** 30).toFixed(1) + ' GiB';
+      return `<td class="${numeric(c) ? 'num' : ''}${c === 'walltime' ? ' wt' : ''}">${esc(v)}</td>`; }).join('') + '</tr>').join('')
+    : '<tr><td class="updated">No executions collected yet.</td></tr>';
+  $('dataTable').querySelectorAll('.sortb').forEach(b => b.addEventListener('click', () => {
+    if (dSort === b.dataset.c) dDir = -dDir; else { dSort = b.dataset.c; dDir = dSort === 'walltime' ? -1 : 1; } renderExec(); }));
+  const capped = P.total_rows > P.rows.length ? ` (first ${P.rows.length.toLocaleString()} of ${P.total_rows.toLocaleString()}; the CSV has all)` : '';
+  $('dMore').innerHTML = rows.length > dShown
+    ? `Showing ${dShown} of ${rows.length.toLocaleString()} executions${capped} <button class="linkbtn" id="moreBtn" type="button">Show more</button>`
+    : rows.length ? `${rows.length.toLocaleString()} executions${capped}` : '';
+  const mb = $('moreBtn'); if (mb) mb.addEventListener('click', () => { dShown += 200; renderExec(); });
+}
+$('colsBtn').addEventListener('click', () => { allCols = !allCols; $('colsBtn').setAttribute('aria-pressed', allCols);
+  $('colsBtn').textContent = allCols ? 'Show key columns' : 'Show all columns'; renderExec(); });
+async function downloadFile(path, name){
+  const res = await fetch(path);
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
+  const url = URL.createObjectURL(await res.blob());
+  const a = Object.assign(document.createElement('a'), {href: url, download: name});
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+$('dlBtn').addEventListener('click', async () => {
+  if (!dApp) return; const btn = $('dlBtn'); btn.disabled = true;
+  try { await downloadFile('/api/apps/' + encodeURIComponent(dApp) + '/profile.csv', dApp + '_profile.csv'); }
+  catch (e) { $('dMissing').textContent = 'Download failed: ' + e.message; } finally { btn.disabled = false; }
+});
+
+/* ================================================================== tabs */
+const SUPER = {configure: 'generate', review: 'generate', data: 'generate', jobs: 'generate',
+               bdata: 'build', bmodels: 'build', btrained: 'build', econfig: 'estimate', emodel: 'estimate', eresults: 'estimate'};
+const lastSub = {generate: 'configure', build: 'bdata', estimate: 'econfig'};
+const BUILD_PANELS = ['bdata', 'bmodels', 'btrained'];
+function show(p){
+  if (!SUPER[p]) p = 'configure';
+  panel = p; const sup = SUPER[p]; lastSub[sup] = p;
+  document.querySelectorAll('.st').forEach(b => b.setAttribute('aria-selected', b.dataset.s === sup));
+  document.querySelectorAll('.tabs4').forEach(t => t.hidden = t.dataset.s !== sup);
+  document.querySelectorAll('.t4').forEach(b => b.setAttribute('aria-selected', b.dataset.p === p));
+  document.querySelectorAll('.panel4').forEach(el => el.hidden = el.id !== 'p-' + p);
+  try { history.replaceState(null, '', '#' + p); } catch (e) {}
+  clearTimeout(jobsTimer);
+  if (p === 'review') renderReview();
+  if (p === 'jobs') loadJobs().catch(e => { $('sweepErr').textContent = 'Could not load jobs: ' + e.message; });
+  if (p === 'data' || BUILD_PANELS.includes(p)) api('/api/campaigns').then(c => { CAMPS = c; renderDataApps(); return loadProfile(); }).catch(() => {});
+  if (p === 'econfig') renderEst();
+  if (p === 'emodel') renderEModels();
+  if (p === 'eresults') renderEResults();
+}
+document.querySelectorAll('.st').forEach(b => b.addEventListener('click', () => show(lastSub[b.dataset.s])));
+document.querySelectorAll('.t4').forEach(b => b.addEventListener('click', () => show(b.dataset.p)));
+document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => show(b.dataset.go)));
+for (const bar of document.querySelectorAll('.tabs4, .stabs')) bar.addEventListener('keydown', ev => {
+  if (!['ArrowLeft', 'ArrowRight'].includes(ev.key)) return;
+  const tabs = [...bar.querySelectorAll('[role=tab]')], i = tabs.indexOf(document.activeElement);
+  if (i < 0) return;
+  const n = tabs[(i + (ev.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length]; n.click(); n.focus();
+});
+
+/* ============================================================== estimate */
+// Entries to estimate: one app, one value per parameter, and the queues it would run on.
+let EST = [], EMODEL = {}, eApp = null, EVALS = {}, EQ = {};   // EQ: queue key -> cores (ticked queues)
+function renderEst(){
+  const apps = APPS.filter(a => a.command);
+  if (!eApp && apps.length) eApp = apps[0].id;
+  $('eApp').innerHTML = apps.length ? apps.map(a => `<option value="${esc(a.id)}" ${a.id === eApp ? 'selected' : ''}>${esc(a.label)} (${esc(a.id)})</option>`).join('')
+    : '<option>No TAPIS apps with sweep parameters</option>';
+  const a = APPS.find(x => x.id === eApp);
+  $('eValsCard').hidden = $('eSysCard').hidden = !a;
+  if (a) {
+    $('eVals').innerHTML = `<div class="ahead" style="grid-template-columns:1fr 2fr"><div>Parameter</div><div>Value</div></div>` + a.params.map(p => `<div class="arow" style="grid-template-columns:1fr 2fr">
+      <div><span class="aname">${esc(p.name)}</span><span class="aflag">${esc(p.arg)} &middot; ${esc(p.kind)}</span></div>
+      <div><input class="valin" data-p="${esc(p.name)}" value="${esc(EVALS[p.name] ?? p.def)}" placeholder="${esc(p.def)}" aria-label="${esc(p.name)} value"></div></div>`).join('');
+    $('eVals').querySelectorAll('.valin').forEach(el => el.addEventListener('input', () => { EVALS[el.dataset.p] = el.value; eReady(); }));
+    $('eSystems').innerHTML = SYSTEMS.map(s => `<div class="syshead"><b>${esc(s.id)}</b><span class="am">${esc(s.host || '')}</span></div>` +
+      qlist(s).map(q => { const k = qkey(s, q), on = k in EQ, id = 'eq-' + k.replace(/[^A-Za-z0-9_-]/g, '_');
+        return `<div class="erow${on ? ' on' : ''}"><input type="checkbox" id="${esc(id)}" data-k="${esc(k)}" ${on ? 'checked' : ''}>
+          <label class="qn" for="${esc(id)}">${esc(q.name || 'default queue')}${isGpu(q) ? ' <span class="pill none">GPU</span>' : ''}</label>
+          <span class="lim">${limits(q)}</span>
+          <input type="number" min="1" ${q.max_cores ? `max="${q.max_cores}"` : ''} data-c="${esc(k)}" value="${EQ[k] || defCores(q)}" aria-label="Cores on ${esc(s.id)} ${esc(q.name || '')}" title="Cores the run would get"></div>`; }).join('')).join('');
+    $('eSystems').querySelectorAll('input[type=checkbox]').forEach(el => el.addEventListener('change', () => {
+      const k = el.dataset.k; if (el.checked) EQ[k] = +$('eSystems').querySelector(`[data-c="${CSS.escape(k)}"]`).value || 1; else delete EQ[k];
+      el.closest('.erow').classList.toggle('on', el.checked); eReady(); }));
+    $('eSystems').querySelectorAll('input[type=number]').forEach(el => el.addEventListener('change', () => {
+      const q = qOf(el.dataset.c), v = cap(Math.max(1, Math.round(+el.value) || 1), q.max_cores); el.value = v;
+      if (el.dataset.c in EQ) EQ[el.dataset.c] = v; }));
+  }
+  renderEList(); eReady();
+}
+$('eApp').addEventListener('change', () => { eApp = $('eApp').value; EVALS = {}; renderEst(); });
+function eProblem(){
+  const a = APPS.find(x => x.id === eApp); if (!a) return 'Pick an app.';
+  for (const p of a.params) { const v = String(EVALS[p.name] ?? p.def).trim();
+    if (!v) return `Give "${p.name}" a value.`;
+    if (v.includes(',')) return `"${p.name}": one value only; an estimate is one run.`;
+    if ((p.kind === 'int' || p.kind === 'float') && isNaN(+v)) return `"${p.name}" needs a number.`; }
+  return Object.keys(EQ).length ? '' : 'Tick at least one queue.';
+}
+function eReady(){ const prob = eProblem(); $('eAdd').disabled = !!prob; $('eMsg').className = 'launchmsg'; $('eMsg').textContent = prob; }
+$('eAdd').addEventListener('click', () => {
+  const a = APPS.find(x => x.id === eApp); if (!a || eProblem()) return;
+  EST.push({id: (EST.reduce((n, e) => Math.max(n, e.id), 0) + 1), app: {id: a.id, label: a.label},
+    values: Object.fromEntries(a.params.map(p => [p.name, String(EVALS[p.name] ?? p.def).trim()])),
+    targets: Object.entries(EQ).map(([k, cores]) => ({system_id: k.split('|')[0], queue: k.split('|')[1] || null, cores}))});
+  store.set('harp-est', EST); renderEList();
+  $('eMsg').className = 'launchmsg ok'; $('eMsg').textContent = 'Added. Change a value to add another run.';
+});
+function renderEList(){
+  const n = EST.reduce((k, e) => k + e.targets.length, 0);
+  $('bEst').textContent = EST.length; $('bEst').classList.toggle('zero', !EST.length);
+  $('eTotals').textContent = EST.length ? `${EST.length} run${EST.length === 1 ? '' : 's'} · ${n} estimate${n === 1 ? '' : 's'}` : '';
+  $('eNext').disabled = !EST.length;
+  $('eList').innerHTML = EST.length ? EST.map(e => `<div class="pitem">
+      <div class="pt"><b>${esc(e.app.label)}</b><span class="pm">${e.targets.length} queue${e.targets.length === 1 ? '' : 's'}</span></div>
+      <div class="pm">${esc(Object.entries(e.values).map(([k, v]) => `${k}=${v}`).join(' · '))}</div>
+      <div class="pm">${esc(e.targets.map(t => `${t.system_id}/${t.queue || 'default'} (${t.cores}c)`).join(', '))}</div>
+      <div class="pa"><button type="button" class="rm" data-erm="${e.id}">Remove</button></div></div>`).join('')
+    : '<div class="planempty">Runs to estimate appear here.</div>';
+  $('eList').querySelectorAll('[data-erm]').forEach(b => b.addEventListener('click', () => {
+    EST = EST.filter(e => e.id !== +b.dataset.erm); store.set('harp-est', EST); renderEList(); }));
+}
+$('eNext').addEventListener('click', () => show('emodel'));
+const modelLabel = m => `${m.RegModel} · ${m.DataSet}${m.ADJ_FACTOR > 1 ? ` · padded ×${(+m.ADJ_FACTOR).toFixed(2)}` : ''}`;
+async function renderEModels(){
+  const apps = [...new Map(EST.map(e => [e.app.id, e.app])).values()];
+  if (!apps.length) { $('eModels').innerHTML = '<div class="card2"><p class="updated">Add runs on Configure first.</p></div>'; return; }
+  $('eModels').innerHTML = '<div class="card2"><p class="updated">Loading trained models…</p></div>';
+  const lists = await Promise.all(apps.map(a => api('/api/builds?app_id=' + encodeURIComponent(a.id)).catch(() => [])));
+  $('eModels').innerHTML = apps.map((a, i) => {
+    const models = lists[i].filter(b => b.status === 'DONE').flatMap(b => b.metrics.filter(m => m.MAPE != null).map(m => ({...m, build: b})));
+    models.sort((x, y) => x.MAPE - y.MAPE);
+    if (!models.length) return `<div class="card2"><div class="chead"><h3>${esc(a.label)}</h3></div>
+      <p class="updated">No trained models for this app yet.</p><div class="actions"><button class="btn btn-navy" type="button" data-gob="${esc(a.id)}">Build some in HARP Build &rarr;</button></div></div>`;
+    const cur = EMODEL[a.id] && models.find(m => m.build.id === EMODEL[a.id].build_id && m.MODEL_NAME === EMODEL[a.id].model) ? EMODEL[a.id] : null;
+    if (!cur) { EMODEL[a.id] = {build_id: models[0].build.id, model: models[0].MODEL_NAME, label: modelLabel(models[0])}; store.set('harp-emodel', EMODEL); }
+    const runs = EST.filter(e => e.app.id === a.id).reduce((k, e) => k + e.targets.length, 0);
+    return `<div class="card2"><div class="chead"><h3>${esc(a.label)}</h3>${'<button type="button" class="help" data-help="scores" aria-label="How are models scored?" aria-expanded="false">?</button>'}
+        <span class="am">${runs} estimate${runs === 1 ? '' : 's'} · ${models.length} trained models, best first</span></div>
+      <div class="mpick">${models.slice(0, 12).map((m, j) => { const on = EMODEL[a.id].build_id === m.build.id && EMODEL[a.id].model === m.MODEL_NAME;
+        return `<label class="mopt${on ? ' on' : ''}"><input type="radio" name="em-${esc(a.id)}" data-app="${esc(a.id)}" data-b="${esc(m.build.id)}" data-m="${esc(m.MODEL_NAME)}" ${on ? 'checked' : ''}>
+          <b>${esc(modelLabel(m))}</b><span class="sc">avg error ${fmtP(m.MAPE)} · too low ${fmtP(m.UPP)}</span>
+          <span class="am">${j === 0 ? 'best · ' : ''}build ${esc(m.build.name)}, ${esc(ago(m.build.created_at))}</span></label>`; }).join('')}</div></div>`; }).join('')
+    + `<div class="actions"><button class="btn btn-navy" type="button" data-go2="eresults">Next: estimates &rarr;</button></div>`;
+  $('eModels').querySelectorAll('input[type=radio]').forEach(el => el.addEventListener('change', () => {
+    EMODEL[el.dataset.app] = {build_id: el.dataset.b, model: el.dataset.m, label: el.closest('.mopt').querySelector('b').textContent};
+    store.set('harp-emodel', EMODEL);
+    el.closest('.mpick').querySelectorAll('.mopt').forEach(o => o.classList.toggle('on', o.contains(el))); }));
+  $('eModels').querySelectorAll('[data-gob]').forEach(b => b.addEventListener('click', () => { dApp = b.dataset.gob; show('bdata'); }));
+  $('eModels').querySelectorAll('[data-go2]').forEach(b => b.addEventListener('click', () => show(b.dataset.go2)));
+}
+function renderEResults(){
+  const rows = EST.flatMap(e => e.targets.map(t => ({e, t})));
+  $('eTable').innerHTML = rows.length ? `<tr><th>App</th><th>Values</th><th>System / queue</th><th class="num">Cores</th><th>Model</th><th class="num">Estimated time</th></tr>` +
+    rows.map(({e, t}) => `<tr><td>${esc(e.app.label)}</td><td class="uuid">${esc(Object.entries(e.values).map(([k, v]) => `${k}=${v}`).join(' '))}</td>
+      <td>${esc(t.system_id)} <span class="am">/ ${esc(t.queue || 'default')}</span></td><td class="num">${t.cores}</td>
+      <td>${EMODEL[e.app.id] ? esc(EMODEL[e.app.id].label) : '<span class="am">pick on Select model</span>'}</td><td class="num"><span class="am">–</span></td></tr>`).join('')
+    : '<tr><td class="updated">Add runs on Configure and pick a model first.</td></tr>';
+}
+
+/* ================================================================== help */
+const HELP = {
+  runtypes: `<p><b>SD · scaled-down</b>: small, quick versions of the problem (small inputs, few epochs). The models learn from these.</p>
+    <p><b>FS · full-scale</b>: the real sizes you care about. Some are mixed into training (SD+25FS, SD+50FS, SD+75FS) and a quarter checks the models while they train.</p>
+    <p><b>test_data · held out</b>: runs kept aside to score the finished models; they are never trained on.</p>
+    <p>A build needs at least 2 SD, 4 FS and 1 test_data run.</p>`,
+  sweep: `<p><b>Sweep</b>: one app, one run type and the parameter values to try, run on the queues and hardware configurations you tick. Every combination on every configuration is one TAPIS job, repeated as often as you ask.</p>
+    <p><b>Campaign</b>: what the server calls a submitted sweep. It submits and follows the sweep's TAPIS jobs and keeps their results together in one folder, <code>&lt;results folder&gt;/&lt;sweep&gt;-&lt;id&gt;/</code>. The word comes from Cheetah, which HARP used before, where a campaign file lists the sweeps to run. Here one sweep is one campaign.</p>`,
+  models: `<p>HARP's build phase trains three kinds of model that predict a run's time from its parameters and hardware:</p>
+    <p><b>LR · linear regression</b>: a weighted sum of the inputs. Fast, simple, a good baseline.</p>
+    <p><b>NN · neural network</b>: two hidden layers (128 and 64 units, TensorFlow). Can fit curved relationships; needs more data.</p>
+    <p><b>DTR · decision tree</b>: splits the inputs into ranges. Handles jumps and thresholds well.</p>
+    <p>Each is trained on every training set you pick, with and without padding, and scored on the test_data runs.</p>`,
+  trainsets: `<p>What each model learns from: <b>SD only</b>, or SD plus <b>25%</b>, <b>50%</b> or <b>75%</b> of the FS runs. More FS usually means better predictions at full scale.</p>
+    <p>Every model also comes <b>padded</b>: its predictions are multiplied by a factor learned from the FS runs it did not train on, so it predicts too low less often. That matters when the prediction becomes a job's time limit.</p>`,
+  runon: `<p><b>A TAPIS system</b>: the build runs as a TAPIS job of the HARP build app (one node, 4 cores, up to an hour) and shows up in <b>Jobs</b>. TAPIS copies the models to the folder you pick.</p>
+    <p><b>This computer</b>: the HARP server runs the build itself, then saves the models to that folder through TAPIS. No queue wait.</p>
+    <p>Either way the training data is cleaned first: runs without a time, and columns not filled in every run, are left out (see <b>Data checks</b>).</p>`,
+  results: `<p>Inside the container a job writes to <code>/TapisOutput</code>. When the job ends, <b>TAPIS</b> copies that folder to the results location (the job's archive location), on any system you can write to. That is set per job by the server, not by the app.</p>
+    <p>The server then merges every job's CSV into <code>&lt;app&gt;_&lt;timestamp&gt;.csv</code> in the sweep's folder, using TAPIS Files, without a job.</p>
+    <p><b>Copy to another location</b> uses a TAPIS file transfer. It needs no allocation account (that is only for compute jobs), just your TAPIS login on both systems and permission to write to the folder.</p>`,
+  inference: `<p>An <b>estimate entry</b> is one run you want a time for: an app, one value per parameter, and the queue and cores it would get. These are the model's independent examples: runs it has not seen.</p>
+    <p>Each entry is estimated once per queue you tick, with the model you pick for its app on <b>Select model</b>.</p>`,
+  scores: `<p>Each model is scored on the <b>test_data</b> runs it never saw:</p>
+    <p><b>Avg error</b>: how far off the predicted time is, on average, as a percentage (MAPE). Lower is better.</p>
+    <p><b>Too low</b>: how often it predicts less time than the run took. Too low means a job would be stopped before it finishes, so padded models trade a little accuracy for fewer of these.</p>
+    <p>Files are saved as <code>models/&lt;model&gt;_&lt;training set&gt;_&lt;padded yes/no&gt;_&lt;time&gt;</code> (.pkl, or .h5 for NN), with every score in <code>model_commons.csv</code>.</p>`,
+};
+let helpBtn = null;
+const helpPop = Object.assign(document.createElement('div'), {className: 'helppop', hidden: true, id: 'helpPop'});
+helpPop.setAttribute('role', 'dialog'); document.body.appendChild(helpPop);
+function closeHelp(){ if (helpBtn) helpBtn.setAttribute('aria-expanded', 'false'); helpBtn = null; helpPop.hidden = true; }
+document.addEventListener('click', ev => {
+  const b = ev.target.closest('.help');
+  if (b) { ev.preventDefault(); ev.stopPropagation();
+    if (helpBtn === b) return closeHelp();
+    closeHelp(); helpBtn = b; b.setAttribute('aria-expanded', 'true');
+    helpPop.innerHTML = HELP[b.dataset.help] || ''; helpPop.setAttribute('aria-label', b.getAttribute('aria-label')); helpPop.hidden = false;
+    const r = b.getBoundingClientRect(), w = helpPop.offsetWidth, h = helpPop.offsetHeight;
+    helpPop.style.left = Math.max(16, Math.min(r.left - 12, innerWidth - w - 16)) + 'px';
+    helpPop.style.top = (r.bottom + 8 + h > innerHeight && r.top - h - 8 > 0 ? r.top - h - 8 : r.bottom + 8) + 'px';
+    return; }
+  if (!ev.target.closest('.helppop')) closeHelp();
+}, true);
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && helpBtn) { const b = helpBtn; closeHelp(); b.focus(); } });
+addEventListener('scroll', closeHelp, {passive: true});
+
+/* ================================================================= login */
+const PORTAL_AUTH_REQUEST = 'harp:portal-auth:request';
+const PORTAL_AUTH_RESPONSE = 'harp:portal-auth:response';
+const PORTAL_AUTH_VERSION = 1;
+
+function showLogin(msg){
+  clearTimeout(jobsTimer); clearTimeout(badgeTimer);
+  $('loginPanel').hidden = false; $('appView').hidden = true;
+  $('portalLoginStatus').hidden = true; $('loginForm').hidden = false;
+  $('loginErr').textContent = msg || '';
+}
+function portalRequestId(){
+  if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+  const bytes = new Uint8Array(16); window.crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+}
+async function loginFromPortal(){
+  if (window.self === window.top) return null;
+  const cfg = await api('/api/config');
+  const origins = Array.isArray(cfg.portal_origins) ? cfg.portal_origins : [];
+  if (!cfg.portal_auth || !origins.length) return null;
+  $('lgTenant').value = cfg.tapis_base_url;
+  $('portalLoginStatus').hidden = false;
+  $('portalLoginStatus').textContent = 'Signing in with your ICICLE portal session…';
+  const requestId = portalRequestId();
+  return new Promise((resolve, reject) => {
+    let settled = false, authReceived = false, retry;
+    const finish = (fn, value) => {
+      if (settled) return;
+      settled = true; clearTimeout(timer); clearInterval(retry);
+      removeEventListener('message', onMessage); fn(value);
+    };
+    const onMessage = event => {
+      const d = event.data;
+      if (authReceived || !origins.includes(event.origin) || event.source !== window.parent || !d ||
+          d.type !== PORTAL_AUTH_RESPONSE || d.version !== PORTAL_AUTH_VERSION ||
+          d.requestId !== requestId || typeof d.accessToken !== 'string' || d.accessToken.length < 32) return;
+      authReceived = true; clearInterval(retry);
+      $('portalLoginStatus').textContent = 'Creating your HARP session…';
+      api('/api/login', {method: 'POST', body: {base_url: cfg.tapis_base_url, access_token: d.accessToken}})
+        .then(me => finish(resolve, me)).catch(err => finish(reject, err));
+    };
+    const timer = setTimeout(() => finish(reject, new Error(
+      'Timed out waiting for TapisUI. You can paste a TAPIS access token below.')), 15000);
+    addEventListener('message', onMessage);
+    const request = {type: PORTAL_AUTH_REQUEST, version: PORTAL_AUTH_VERSION, requestId};
+    const sendRequest = () => origins.forEach(origin => window.parent.postMessage(request, origin));
+    sendRequest(); retry = setInterval(sendRequest, 1000);
   });
 }
-
-/* ---- hardware ------------------------------------------------------ */
-function renderHw(){
-  document.getElementById('hwpick').innerHTML=TARGETS.map(t=>{
-    const k=tkey(t);
-    return `<label class="hwt"><input type="checkbox" data-k="${k}" ${
-      chosen.has(k)?'checked':''}>
-      <span class="n">${t.system_code}/${t.queue_name}</span>
-      <span class="g">${t.gpu_model.toUpperCase()}&times;${t.gpus_per_node}</span></label>`;
-  }).join('');
-  document.querySelectorAll('.hwt input').forEach(c=>
-    c.addEventListener('change',()=>{
-      c.checked?chosen.add(c.dataset.k):chosen.delete(c.dataset.k); recompute();
-    }));
+async function showLoginOrUsePortal(msg){
+  clearTimeout(jobsTimer); clearTimeout(badgeTimer);
+  $('loginPanel').hidden = true; $('loginForm').hidden = true; $('appView').hidden = true;
+  let progressTimer;
+  if (window.self !== window.top) {
+    progressTimer = setTimeout(() => {
+      $('portalLoginStatus').hidden = false;
+      $('portalLoginStatus').textContent = 'Signing in with your ICICLE portal session…';
+      $('loginPanel').hidden = false;
+    }, 500);
+  }
+  try {
+    const me = await loginFromPortal();
+    clearTimeout(progressTimer);
+    if (me) return showApp(me);
+  } catch (e) {
+    clearTimeout(progressTimer);
+    return showLogin(e.message);
+  }
+  clearTimeout(progressTimer);
+  showLogin(msg);
 }
-
-/* ---- budget -------------------------------------------------------- */
-function recompute(){
-  if(!currentApp) return;
-  const per=designSize();
-  const targets=chosen.size;
-  const reps=Math.max(1,+document.getElementById('reps').value||1);
-  const timeout=Math.max(1,+document.getElementById('timeout').value||1);
-  const total=per*targets*reps;
-  const nodeHours=total*(timeout/60);
-
-  const el=document.getElementById('totalRuns');
-  el.textContent=total.toLocaleString();
-  el.className='big'+(nodeHours>5000?' bad':nodeHours>800?' warn':'');
-  document.getElementById('runsLabel').textContent=total===1?'run':'runs';
-
-  const swept=currentApp.appArgs.filter(a=>sweptValues(a).length>1);
-  document.getElementById('formula').innerHTML=swept.length
-    ? swept.map(a=>`<b>${sweptValues(a).length}</b> ${a.name}`).join(' &times; ')
-      +`<br>&times; <b>${targets}</b> hw &times; <b>${reps}</b> reps`
-    : 'Nothing swept &mdash; every parameter is fixed.';
-  document.getElementById('perTarget').textContent=per.toLocaleString();
-  document.getElementById('nTargets').textContent=targets;
-  document.getElementById('nReps').textContent=reps;
-  document.getElementById('nodeHours').textContent=Math.round(nodeHours).toLocaleString();
-
-  let alarm='';
-  if(!targets) alarm='No hardware selected.';
-  else if(nodeHours>5000) alarm=Math.round(nodeHours).toLocaleString()
-    +' node-hours is beyond a normal allocation. Shorten a list before submitting.';
-  else if(per>500) alarm='A full sweep of '+per.toLocaleString()
-    +' per target is large. Screen on one machine first.';
-  document.getElementById('alarm').innerHTML=alarm?`<div class="alarm">${alarm}</div>`:'';
-  document.getElementById('genBtn').disabled=!targets||total===0;
+async function showApp(me){
+  USERKEY = ':' + me.username + '@' + me.base_url.replace(/^https?:\/\//, ''); ME_USER = me.username;
+  PLAN = store.get('harp-plan', []); planSeq = PLAN.reduce((n, p) => Math.max(n, p.id), 0);
+  ALLOC = store.get('harp-alloc', {}); for (const k in BSEL) delete BSEL[k]; dApp = null; prof = null;
+  EST = store.get('harp-est', []); EMODEL = store.get('harp-emodel', {}); eApp = null; EVALS = {}; EQ = {};
+  $('bPath').value = ''; $('bSys').innerHTML = ''; $('store').value = ''; $('movePath').value = ''; $('moveDet').open = false;
+  $('loginPanel').hidden = true; $('appView').hidden = false;
+  $('appSel').innerHTML = '<option>Loading your TAPIS apps…</option>'; $('appSel').disabled = true;
+  try { await Promise.all([loadApps(), loadSystems()]); }
+  catch (e) { if (e.status === 401) return showLoginOrUsePortal('Session expired. Signing in again…');
+              $('appMeta').textContent = 'Could not load your apps: ' + e.message; return; }
+  renderApps(); renderPlan();
+  const first = APPS.find(a => a.command) || APPS[0]; if (first && !app) pickApp(first.id);
+  refreshBadge();
+  const want = location.hash.slice(1);
+  show(SUPER[want] ? want : 'configure');
 }
-
-/* ---- generate the campaign ---------------------------------------- */
-function pyList(vals,kind){
-  const q = kind==='string';
-  return '['+vals.map(v=>q?`'${v}'`:v).join(', ')+']';
-}
-function generate(){
-  const t=TARGETS.find(x=>chosen.has(tkey(x)));
-  const timeout=+document.getElementById('timeout').value||20;
-  const reps=+document.getElementById('reps').value||1;
-  const per=designSize();
-
-  const lines=currentApp.appArgs.map(a=>{
-    const vals=sweptValues(a);
-    const use=vals.length?vals:[a.values[0]];
-    return `    ParamCmdLineOption('app', '${a.name}', '${a.arg}', ${pyList(use,a.kind)}),`;
-  }).join('\n');
-
-  const spec=
-`# Generated from the profiling design.
-# App:     ${currentApp.label}  (${currentApp.id} v${currentApp.version})
-# Runtime: ${currentApp.runtime}  image ${currentApp.image}
-# Target:  ${t?t.center_code+' '+t.system_code+'/'+t.queue_name:'(none)'}  ${
-   t?(t.gpu_model.toUpperCase()+' x'+t.gpus_per_node):''}
-# ${per} experiments per target, ${chosen.size} target(s), ${reps} rep(s)
-
-from codar.cheetah import Campaign
-from codar.cheetah.parameters import ParamRunner, ParamCmdLineOption
-
-class Profile(Campaign):
-    name = 'harp_${currentApp.id.replace(/[^a-z0-9]/gi,'_')}'
-    codes = [('app', dict(exe='${currentApp.entrypoint}'))]
-    sweep_params = [
-        ParamRunner('app', 'nprocs', [1]),
-${lines}
-    ]
-    sweep1 = Sweep(sweep_params)
-    sweep1.node_layout = {'app': ${t?t.cores_per_node:1}}
-    sg = SweepGroup(name='harp', per_run_timeout=${timeout},
-                    parameter_groups=[sweep1], run_repetitions=${reps-1},
-                    component_subdirs=True)
-    sweeps = [sg]
-
-# cheetah create-campaign -e . -a <app dir> -m ${t?t.system_code:'machine'} -o campaign/
-# cheetah run-campaign -id campaign/$USER`;
-
-  document.getElementById('spec').textContent=spec;
-  document.getElementById('specWrap').style.display='block';
-  const sw=document.getElementById('specWrap'); if(sw.scrollIntoView) sw.scrollIntoView({behavior:'smooth',block:'start'});
-}
-
-/* ---- wiring -------------------------------------------------------- */
-document.querySelectorAll('.tabx').forEach(b=>
-  b.addEventListener('click',()=>{
-    tab=b.dataset.t;
-    document.querySelectorAll('.tabx').forEach(x=>x.setAttribute('aria-selected',x===b));
-    currentApp=null;
-    document.getElementById('emptyPanel').style.display='block';
-    document.getElementById('designPanel').style.display='none';
-    document.getElementById('jobPanel').style.display='none';
-    document.getElementById('budget').style.display='none';
-    document.getElementById('specWrap').style.display='none';
-    renderList();
-  }));
-['reps','timeout'].forEach(id=>
-  document.getElementById(id).addEventListener('input',recompute));
-document.getElementById('genBtn').addEventListener('click',generate);
-
-(async function init(){
-  await loadTargets();
-  renderTabs(); renderList();
-})();
-
+$('loginForm').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const f = new FormData(ev.target), btn = ev.target.querySelector('button');
+  btn.disabled = true; $('loginErr').textContent = '';
+  try { showApp(await api('/api/login', {method: 'POST', body: {
+          base_url: f.get('base_url').trim().replace(/\/+$/, ''), access_token: f.get('access_token').trim()}})); }
+  catch (e) { $('loginErr').textContent = e.message; }
+  finally { btn.disabled = false; ev.target.access_token.value = ''; }
+});
+(async () => { try { showApp(await api('/api/me')); } catch (e) { showLoginOrUsePortal(); } })();
 </script>
 </body>
 </html>

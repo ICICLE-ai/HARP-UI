@@ -1,0 +1,12 @@
+{
+  "pod_id": "harp",
+  "template": "harp:2.0.0",
+  "description": "HARP HPC Application Runtime Predictor",
+  "volume_mounts": {
+    "/var/lib/harp": {
+      "type": "tapisvolume",
+      "source_id": "harpdata"
+    }
+  },
+  "status_requested": "ON"
+}

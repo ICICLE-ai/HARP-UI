@@ -1,0 +1,57 @@
+{
+  "template_id": "harp",
+  "tag": "2.0.0",
+  "commit_message": "HARP 2.0.0 portal-integrated service",
+  "pod_definition": {
+    "image": "ghcr.io/manikyaswathi/harp-ui:2.0.0",
+    "description": "HARP HPC Application Runtime Predictor",
+    "environment_variables": {
+      "HARP_BEHIND_PROXY": "1",
+      "HARP_HOST": "0.0.0.0",
+      "HARP_PORT": "8000",
+      "HARP_PROXY_IPS": "*",
+      "HARP_SERVER_DATA": "/var/lib/harp",
+      "HARP_TAPIS_BASE_URL": "https://icicleai.tapis.io",
+      "HARP_PORTAL_ORIGINS": "https://icicleai.tapis.io",
+      "HARP_SESSION_SAME_SITE": "none",
+      "HARP_POLL_SECONDS": "15"
+    },
+    "volume_mounts": {
+      "/var/lib/harp": {
+        "type": "tapisvolume",
+        "source_id": "${:?Persistent HARP data volume ID}"
+      }
+    },
+    "time_to_stop_default": -1,
+    "networking": {
+      "default": {
+        "protocol": "http",
+        "port": 8000,
+        "ip_allow_list": [],
+        "tapis_auth": false,
+        "cors_allow_origins": [],
+        "cors_allow_methods": [],
+        "cors_allow_headers": [],
+        "cors_allow_credentials": false,
+        "proxy_compression": true,
+        "proxy_compression_encodings": [
+          "zstd",
+          "br",
+          "gzip"
+        ],
+        "proxy_compression_excluded_content_types": [],
+        "proxy_compression_min_response_body_bytes": 1024
+      }
+    },
+    "resources": {
+      "cpu_request": 500,
+      "cpu_limit": 2000,
+      "mem_request": 1024,
+      "mem_limit": 4096,
+      "ephemeral_storage_request": -1,
+      "ephemeral_storage_limit": -1,
+      "gpus": 0
+    },
+    "compute_queue": "default"
+  }
+}
