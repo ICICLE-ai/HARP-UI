@@ -13,6 +13,10 @@ on:
     types: [published]
   workflow_dispatch:
     inputs:
+      source_ref:
+        description: Branch, tag, or commit to build
+        required: true
+        default: "main"
       image_tag:
         description: Container tag to publish (for example, 2.0.0-rc.1)
         required: true
@@ -30,6 +34,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source_ref || github.ref }}
 
       - name: Image name
         id: image
