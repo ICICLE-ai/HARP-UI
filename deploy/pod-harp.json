@@ -1,6 +1,6 @@
 {
   "pod_id": "harp",
-  "image": "ghcr.io/manikyaswathi/harp-ui:2.0.0",
+  "image": "ghcr.io/icicle-ai/harp-ui:2.0.0",
   "template": "",
   "description": "HARP HPC Application Runtime Predictor",
   "command": null,

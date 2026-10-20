@@ -1,6 +1,6 @@
 {
   "pod_id": "harp",
-  "template": "harp:2.0.0",
+  "template": "harp:2.0.0-icicle.1",
   "description": "HARP HPC Application Runtime Predictor",
   "volume_mounts": {
     "/var/lib/harp": {

@@ -12,14 +12,13 @@ HARP is distributed under the [BSD 3-Clause License](LICENSE).
 
 ## References
 
-- [HARP source repository](https://github.com/manikyaswathi/HARP-UI)
+- [HARP source repository](https://github.com/ICICLE-ai/HARP-UI)
 - [HARP sweep-server documentation](harp_server/README.md)
 - [Tapis Pods deployment guide](deploy/README.md)
 - [Deployed HARP service](https://harp.pods.icicleai.tapis.io)
+- [Tapis Pods Service API v1.7.0](https://tapis.readthedocs.io/en/latest/technical/pods.html) — hosting platform documentation for the HARP service.
 - [Tapis documentation](https://tapis.readthedocs.io/)
 - [CODAR Cheetah](https://github.com/CODARcode/cheetah)
-
-<!-- > **Repository transfer TODO:** after this repository moves to `ICICLE-ai`, update the source, issue, license, and GHCR links from `manikyaswathi/HARP-UI` to the final ICICLE repository path. The Tapis Pod endpoint can remain unchanged. -->
 
 ## Acknowledgements
 
@@ -27,7 +26,7 @@ HARP is distributed under the [BSD 3-Clause License](LICENSE).
 
 ## Issue reporting
 
-Report defects and feature requests through [GitHub Issues](https://github.com/manikyaswathi/HARP-UI/issues). Include the HARP version, execution environment, Tapis tenant when applicable, reproduction steps, and relevant logs without access tokens or passwords.
+Report defects and feature requests through [GitHub Issues](https://github.com/ICICLE-ai/HARP-UI/issues). Include the HARP version, execution environment, Tapis tenant when applicable, reproduction steps, and relevant logs without access tokens or passwords.
 
 ---
 
