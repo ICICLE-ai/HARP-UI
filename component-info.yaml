@@ -1,22 +1,21 @@
 # ICICLE component catalog metadata for HARP.
 #
 # Repository transfer TODO:
-# - Change sourceCodeUrl and licenseUrl to the final ICICLE-ai repository URL.
 # - Confirm the catalog owner and primary thrust with the ICICLE maintainer.
 # - Confirm whether Tapis, Tapis Pods, or another ICICLE catalog component must
 #   be represented through hasDependentComponents; that key is omitted until a
 #   canonical related component id is supplied.
-- id: "HARP:2.0.0"
+- id: "HARP:2.1.0"
   owner: "Manikya Swathi"
   primaryThrust: "core/AI4CI"
   name: "HARP"
   status: "PrototypeRelease"
   description: "HARP profiles scientific applications across HPC systems, trains regression models from execution history, and predicts runtime and resource needs. Its Tapis-backed sweep service distributes profiling jobs across systems and exposes the workflow through a browser interface."
-  componentVersion: "2.0.0"
-  targetIcicleRelease: None
-  licenseUrl: "https://github.com/manikyaswathi/HARP-UI?tab=BSD-3-Clause-1-ov-file"
+  componentVersion: "2.1.0"
+  targetIcicleRelease: "2026-10"
+  licenseUrl: "https://github.com/ICICLE-ai/HARP-UI?tab=BSD-3-Clause-1-ov-file"
   publicAccess: true
-  sourceCodeUrl: "https://github.com/manikyaswathi/HARP-UI"
+  sourceCodeUrl: "https://github.com/ICICLE-ai/HARP-UI"
   codeReviewConducted: false
   testsWritten: true
   developerDocumentationAvailable: true
