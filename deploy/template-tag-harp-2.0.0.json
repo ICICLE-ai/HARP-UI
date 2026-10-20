@@ -19,7 +19,7 @@
     "volume_mounts": {
       "/var/lib/harp": {
         "type": "tapisvolume",
-        "source_id": "harp-data"
+        "source_id": "${:?Persistent HARP data volume ID}"
       }
     },
     "time_to_stop_default": -1,

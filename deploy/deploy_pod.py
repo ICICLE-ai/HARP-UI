@@ -75,16 +75,16 @@ def value(resource: Any, name: str, default: Any = None) -> Any:
 
 
 def create_resources(client: Tapis, image: str, pod_id: str) -> str:
-    volume = get_or_none(client.pods.get_volume, volume_id="harp-data")
+    volume = get_or_none(client.pods.get_volume, volume_id="harpdata")
     if volume is None:
         client.pods.create_volume(
-            volume_id="harp-data",
+            volume_id="harpdata",
             description="Persistent campaign and build state for HARP",
             size_limit=1024,
         )
-        print("Created volume harp-data")
+        print("Created volume harpdata")
     else:
-        print("Using existing volume harp-data")
+        print("Using existing volume harpdata")
 
     template_definition = load_json("template-harp.json")
     template_id = template_definition["template_id"]

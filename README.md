@@ -1,9 +1,47 @@
+# HARP - HPC Application Runtime Predictor
+
+HARP profiles scientific applications across high-performance computing systems, builds regression models from the resulting execution history, and predicts application runtime and resource needs. Its Tapis-backed sweep service distributes profiling runs across multiple systems and exposes the workflow through a browser interface that can be embedded in TapisUI.
+
+**Tags:** Software, AI4CI
+
+### License
 
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
-# HARP - HPC Application Runtime Predictor
+HARP is distributed under the [BSD 3-Clause License](LICENSE).
 
-PLEASE REDIRECT TO DEMO FOLDER (readMe.md) FOR A SAMPLE DEMO OF THE PROJECT.
+## References
+
+- [HARP source repository](https://github.com/manikyaswathi/HARP-UI)
+- [HARP sweep-server documentation](harp_server/README.md)
+- [Tapis Pods deployment guide](deploy/README.md)
+- [Deployed HARP service](https://harp.pods.icicleai.tapis.io)
+- [Tapis documentation](https://tapis.readthedocs.io/)
+- [CODAR Cheetah](https://github.com/CODARcode/cheetah)
+
+<!-- > **Repository transfer TODO:** after this repository moves to `ICICLE-ai`, update the source, issue, license, and GHCR links from `manikyaswathi/HARP-UI` to the final ICICLE repository path. The Tapis Pod endpoint can remain unchanged. -->
+
+## Acknowledgements
+
+*National Science Foundation (NSF) funded AI institute for Intelligent Cyberinfrastructure with Computational Learning in the Environment (ICICLE) (OAC 2112606)*
+
+## Issue reporting
+
+Report defects and feature requests through [GitHub Issues](https://github.com/manikyaswathi/HARP-UI/issues). Include the HARP version, execution environment, Tapis tenant when applicable, reproduction steps, and relevant logs without access tokens or passwords.
+
+---
+
+# Tutorials
+
+- Follow the [sweep-server tutorial](harp_server/README.md) to run HARP locally, authenticate with Tapis, configure a sweep, submit profiling jobs, and collect merged training data.
+- Follow the [Tapis Pods deployment tutorial](deploy/README.md) to publish the HARP image, register its Pod template, launch the service, and validate the hosted endpoint.
+- See [`examples/01-eulers_number`](examples/01-eulers_number/README.md) and [`examples/02-yolo`](examples/02-yolo/README.md) for example target applications.
+
+---
+
+# Explanation
+
+The sections below describe the original HARP framework, its profiling and modeling pipeline, and the problem it addresses.
 
 **NEW:** to run the generate phase as many TAPIS jobs across several systems, with a web UI, see [harp_server/README.md](harp_server/README.md).
 
@@ -40,7 +78,12 @@ Note: The Framework is built on TensorFlow Framework.
 <img src="https://anonymous.4open.science/r/EstimateAppRes/Documents/Folder_Structure.png" alt="Application Folder Structure and Files" width=75% height=75% class="center">
               Figure 2: Shows the target-application execution endpoint and the harp application folder structure. 
 
- 
+---
+
+# How-To Guides
+
+Use the following guides to configure HARP, build its images, install it on supported systems, and profile an application.
+
 ## WAYS to configure HARP to setup applications for profiling:
 1. Configure HARP with TAPIS to execute HARP and applications to profile as container images. 
 2. Install HARP as a loadable module on OSC or localbox.
@@ -263,10 +306,3 @@ Owens (OSC) | :white_check_mark: | :white_check_mark: |  :white_check_mark: | :w
 Pitzer (OSC) | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: 
 Frontera (TACC) |  | :white_check_mark: |  :white_check_mark: | :white_check_mark: 
 Stampede2 (TACC) |  | :white_check_mark: | :white_check_mark: | :white_check_mark: 
-
-
-
-License
--------
-The HARP is licensed under the https://opensource.org/licenses/BSD-3-Clause
-

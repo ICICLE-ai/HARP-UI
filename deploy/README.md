@@ -24,6 +24,13 @@ GitHub owner. If HARP moves to the ICICLE organization, publish the image as
 `ghcr.io/icicle-ai/harp-ui:<version>` and update the Pod image; the Pod ID,
 volume, endpoint, and TapisUI route do not need to change.
 
+<!-- > **Repository transfer TODO:** after the move, update repository links in
+> `README.md` and `component-info.yaml`, confirm the catalog owner and dependency
+> metadata, publish a versioned `ghcr.io/icicle-ai/harp-ui` image, ask the Pods
+> administrator to allowlist that exact image, and register a new immutable
+> template tag that references it. Do not overwrite the existing `harp:2.0.0`
+> template tag. -->
+
 From the repository root:
 
 ```bash
@@ -31,8 +38,10 @@ docker build -f harp_server/Dockerfile -t ghcr.io/manikyaswathi/harp-ui:2.0.0 .
 docker push ghcr.io/manikyaswathi/harp-ui:2.0.0
 ```
 
-Make the GHCR package public/readable by the Pods cluster. Pass that image to
-the deployment script; no registry credential is stored in the Pod template.
+Make the GHCR package public/readable by the Pods cluster. A Pods administrator
+must also add the exact image reference to the tenant's `/pods/images`
+allowlist before the template tag can be registered. Pass that image to the
+deployment script; no registry credential is stored in the Pod template.
 
 ## 2. Create persistent storage
 
@@ -41,7 +50,7 @@ required so they survive Pod replacement:
 
 ```python
 t.pods.create_volume(
-    volume_id="harp-data",
+    volume_id="harpdata",
     description="Persistent campaign and build state for HARP",
     size_limit=1024,
 )
@@ -59,7 +68,9 @@ The deployment resources are split along the same boundary as the Pods API:
 - `template-tag-harp-2.0.0.json` adds immutable version `harp:2.0.0` with the
   image, runtime configuration, volume mount, networking, and resource limits.
 - `pod-harp-from-template.json` creates the small `harp` instance from that
-  versioned template.
+  versioned template and supplies its concrete `harpdata` volume ID. The
+  reusable template keeps the volume source as a required placeholder because
+  Tapis Pods does not permit literal tenant volume IDs in template tags.
 
 The additive deployment helper creates missing resources and never replaces or
 deletes existing ones. From the repository root:
