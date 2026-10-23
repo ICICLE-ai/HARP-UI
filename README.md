@@ -14,7 +14,7 @@ HARP is distributed under the [BSD 3-Clause License](LICENSE).
 
 ## References
 
-- [HARP source repository](https://github.com/manikyaswathi/HARP-UI)
+- [HARP source repository](https://github.com/ICICLE-ai/HARP-UI)
 - [Deployed HARP service](https://harp.pods.icicleai.tapis.io)
 - [HARP sweep-server reference](harp_server/README.md) (API, environment variables, internals)
 - [Tapis Pods deployment guide](deploy/README.md)
@@ -29,7 +29,7 @@ HARP is distributed under the [BSD 3-Clause License](LICENSE).
 
 ## Issue reporting
 
-Report defects and feature requests through [GitHub Issues](https://github.com/manikyaswathi/HARP-UI/issues). Include the HARP version, where the UI runs (laptop, HTTPS server, Tapis Pod / TapisUI), the Tapis tenant, reproduction steps, and relevant logs. Never include access tokens or passwords.
+Report defects and feature requests through [GitHub Issues](https://github.com/ICICLE-ai/HARP-UI/issues). Include the HARP version, where the UI runs (laptop, HTTPS server, Tapis Pod / TapisUI), the Tapis tenant, reproduction steps, and relevant logs. Never include access tokens or passwords.
 
 ---
 
@@ -51,7 +51,7 @@ You still need Tapis credentials and an allocation on the systems you profile on
 Requires macOS or Linux, Python 3.11 or 3.12, and this repository.
 
 ```bash
-git clone https://github.com/manikyaswathi/HARP-UI.git
+git clone https://github.com/ICICLE-ai/HARP-UI.git
 cd HARP-UI
 ./harp_server/scripts/run_local.sh
 ```
@@ -130,12 +130,12 @@ Open `https://<server-hostname>:8443`. For real use, point `HARP_SSL_CERT` / `HA
 Build and publish the server image ([`harp_server/Dockerfile`](harp_server/Dockerfile)), create the `harpdata` volume, and register the Pod template and Pod with [`deploy/deploy_pod.py`](deploy/deploy_pod.py):
 
 ```bash
-docker build -f harp_server/Dockerfile -t ghcr.io/manikyaswathi/harp-ui:2.0.0 .
-docker push ghcr.io/manikyaswathi/harp-ui:2.0.0
+docker build -f harp_server/Dockerfile -t ghcr.io/icicle-ai/harp-ui:2.0.0 .
+docker push ghcr.io/icicle-ai/harp-ui:2.0.0
 
 export TAPIS_BASE_URL=https://icicleai.tapis.io
 export TAPIS_ACCESS_TOKEN='<token>'
-export HARP_IMAGE=ghcr.io/manikyaswathi/harp-ui:2.0.0
+export HARP_IMAGE=ghcr.io/icicle-ai/harp-ui:2.0.0
 python deploy/deploy_pod.py
 curl https://harp.pods.icicleai.tapis.io/healthz      # {"status":"ok"}
 ```
