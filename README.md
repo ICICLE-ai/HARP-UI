@@ -1,6 +1,8 @@
-# HARP - HPC Application Runtime Predictor
+# HARP UI - HPC Application Runtime Predictor
 
-HARP profiles scientific applications across high-performance computing systems, builds regression models from the resulting execution history, and predicts application runtime and resource needs. Its Tapis-backed sweep service distributes profiling runs across multiple systems and exposes the workflow through a browser interface that can be embedded in TapisUI.
+HARP profiles scientific applications across high-performance computing (HPC) systems, builds regression models from the resulting execution history, and predicts application runtime and resource needs. **HARP UI** is the browser front end for that workflow: one web page, backed by a small FastAPI server, that turns a profiling sweep into many Tapis jobs across several systems, collects their results, trains runtime estimators, and lets you pick the best model, all through your own Tapis account. It runs on your laptop, on a shared HTTPS server, or as an ICICLE Tapis Pod embedded in TapisUI.
+
+> Looking for the earlier notebook (Colab + Tapis container) workflow or the installable OSC/Linux module (`module load harp`)? See the [legacy guide](Documents/README_legacy_notebook_and_module.md).
 
 **Tags:** Software, AI4CI
 
@@ -13,13 +15,13 @@ HARP is distributed under the [BSD 3-Clause License](LICENSE).
 ## References
 
 - [HARP source repository](https://github.com/manikyaswathi/HARP-UI)
-- [HARP sweep-server documentation](harp_server/README.md)
-- [Tapis Pods deployment guide](deploy/README.md)
 - [Deployed HARP service](https://harp.pods.icicleai.tapis.io)
+- [HARP sweep-server reference](harp_server/README.md) (API, environment variables, internals)
+- [Tapis Pods deployment guide](deploy/README.md)
+- [Offline UI demo](DEMO/ui/README.md)
+- [Legacy notebook and module guide](Documents/README_legacy_notebook_and_module.md)
 - [Tapis documentation](https://tapis.readthedocs.io/)
 - [CODAR Cheetah](https://github.com/CODARcode/cheetah)
-
-<!-- > **Repository transfer TODO:** after this repository moves to `ICICLE-ai`, update the source, issue, license, and GHCR links from `manikyaswathi/HARP-UI` to the final ICICLE repository path. The Tapis Pod endpoint can remain unchanged. -->
 
 ## Acknowledgements
 
@@ -27,282 +29,189 @@ HARP is distributed under the [BSD 3-Clause License](LICENSE).
 
 ## Issue reporting
 
-Report defects and feature requests through [GitHub Issues](https://github.com/manikyaswathi/HARP-UI/issues). Include the HARP version, execution environment, Tapis tenant when applicable, reproduction steps, and relevant logs without access tokens or passwords.
+Report defects and feature requests through [GitHub Issues](https://github.com/manikyaswathi/HARP-UI/issues). Include the HARP version, where the UI runs (laptop, HTTPS server, Tapis Pod / TapisUI), the Tapis tenant, reproduction steps, and relevant logs. Never include access tokens or passwords.
 
 ---
 
 # Tutorials
 
-- Follow the [sweep-server tutorial](harp_server/README.md) to run HARP locally, authenticate with Tapis, configure a sweep, submit profiling jobs, and collect merged training data.
-- Follow the [Tapis Pods deployment tutorial](deploy/README.md) to publish the HARP image, register its Pod template, launch the service, and validate the hosted endpoint.
-- See [`examples/01-eulers_number`](examples/01-eulers_number/README.md) and [`examples/02-yolo`](examples/02-yolo/README.md) for example target applications.
+## Try the UI offline (no Tapis needed)
 
----
+Open [`DEMO/ui/profiling.html`](DEMO/ui/profiling.html) in a browser and log in with any username and password. It runs on built-in sample apps, systems, sweeps and data, so you can walk through every tab before touching a real cluster.
 
-# Explanation
+## Use the hosted service
 
-The sections below describe the original HARP framework, its profiling and modeling pipeline, and the problem it addresses.
+1. Sign in to the ICICLE TapisUI (`https://icicleai.tapis.io`) and open the **HARP** page. TapisUI hands your access token to HARP automatically; there is no second login.
+2. Or open [https://harp.pods.icicleai.tapis.io](https://harp.pods.icicleai.tapis.io) directly and paste a current Tapis access token (JWT).
 
-**NEW:** to run the generate phase as many TAPIS jobs across several systems, with a web UI, see [harp_server/README.md](harp_server/README.md).
+You still need Tapis credentials and an allocation on the systems you profile on (see [Prerequisites](#prerequisites)).
 
-To host that UI as an ICICLE Tapis Pod and open it inside TapisUI with the signed-in user's token, see
-[deploy/README.md](deploy/README.md).
+## Run HARP UI on your laptop
 
-## Overview
+Requires macOS or Linux, Python 3.11 or 3.12, and this repository.
 
-Researchers use high-performance computing (HPC) cyberinfrastructures (CI) like the Ohio Supercomputer (OSC) or Texas Advanced Computing Center (TACC) to execute computationally intensive diverse scientific workflows. Some workflows are heavy on IO, like genome sequencing (cleaning and assembly), while others, like training DNNs, could be compute (and memory) intensive. Each workflow has a unique resource requirement, and it is essential to profile and understand these needs to allocate shared resources for optimal utilization of the cyberinfrastructure. These resources are expensive, and several jobs compete to get these allocations, sometimes with reasonable wait times (while requesting enormous resources for a long time). Estimating the expected resources for optimally utilizing the compute and memory is challenging, especially considering the need for sufficient history to enable these predictions tailored for unique workflows and execution environments. We explored and established a framework (as shown in Figure 1) that pipelines the solutions to address these challenges. The Framework is configured to generate a history of executions and train suitable regression models to estimate the approximate execution time for a targeted application.
+```bash
+git clone https://github.com/manikyaswathi/HARP-UI.git
+cd HARP-UI
+./harp_server/scripts/run_local.sh
+```
 
+Open `http://localhost:8000`. The first run creates `harp_server/.venv` and installs FastAPI, Uvicorn and tapipy, plus pandas, scikit-learn and TensorFlow for local model builds (set `HARP_NO_BUILD=1` to skip those). The server listens on `127.0.0.1` only. State is kept in `~/.harp_server`.
 
-<!-- 
-![alt text](https://anonymous.4open.science/r/EstimateAppRes/Documents/HARP_Pipeline.png?raw=true)
+Keep the laptop awake while sweeps run (on a Mac: `caffeinate -i ./harp_server/scripts/run_local.sh`). If it sleeps or you stop the server, jobs already in Tapis keep running; start the server again, log in, and it picks the sweeps back up.
 
-![alt text](https://anonymous.4open.science/r/EstimateAppRes/Documents/Folder_Structure.png?raw=true)
+## Walk through a first sweep
 
- -->
+The Euler-number example ([`examples/01-eulers_number`](examples/01-eulers_number/README.md)) is the quickest end-to-end test.
 
-
- 
-<!--  ![HARP Pipeline](https://anonymous.4open.science/r/EstimateAppRes/Documents/HARP_Pipeline.png) -->
-<img src="https://anonymous.4open.science/r/EstimateAppRes/Documents/HARP_Pipeline.png" alt="HARP Pipeline" width=75% height=75% class="center">
-          Figure 1: The Proposed Framework: training data generation, building regression models, selecting the best model based on custom criteria
-  
-  
-### Components and Characteristics of the Framework (from Figure 1):
-1. **Generating and Preparing Training Data:** This module automatically and systematically generates comprehensive, diverse "scaled-down(SD)" and limited, selective "full-scale(FS)" runs with minimal human intervention. We use Cheetah (https://github.com/CODARcode/cheetah) to execute the target application with the pre-defined data generation configurations (SD and FS) to generate the history-of-runs training data.
-2. **Building Regression Models:** This module standardizes and prepares the data, trains the selected off-the-shelf regression models with the appropriate hyper-parameters, and stores them for inference. In this phase, the data generated in the first phase is processed to train regression models. Redundant features are eliminated, outliers are removed, and features are transformed to reduce the dimensionality before training the regression models. 
-3. **Selecting Appropriate Prediction Model:** This module selects the most appropriate regression model from a pool of trained models from phase 2 with respect to a given policy and target application
-Note: The Framework is built on TensorFlow Framework.
-  
-<!--  ![Application Folder Structure and Files](Documents/Folder_Structure.png) -->
- 
-<img src="https://anonymous.4open.science/r/EstimateAppRes/Documents/Folder_Structure.png" alt="Application Folder Structure and Files" width=75% height=75% class="center">
-              Figure 2: Shows the target-application execution endpoint and the harp application folder structure. 
+1. **Log in** with a Tapis access token.
+2. **HARP Generate → Configure:** pick the `harp-sweep-euler` app, choose a run type (SD, FS or test_data), repetitions, timeout and parameter values; tick systems and queues, set each queue's hardware (cores, memory, minutes) and your allocation account (e.g. `-A PAS2271`); add the sweep to the plan. Repeat for the other run types.
+3. **Review & submit:** HARP checks every sweep against Tapis and shows what each job will request. Pick the results location, optionally a second location to copy results to, and submit (all or nothing).
+4. **Jobs:** watch each Tapis job and its runs done; cancel a sweep if needed.
+5. **Profiled data:** when the jobs finish, see every execution with its parameters, hardware and walltime, medians by run type and hardware, and export CSV.
+6. **HARP Build:** pick the sweeps to learn from (at least 2 SD, 4 FS and 1 test_data run), pick models (LR, NN, DTR) and training sets, and run the build as a Tapis job or on this computer.
+7. **HARP Estimate:** enter one value per parameter, tick candidate queues and cores, select a trained model (the best is preselected), and view the estimates.
 
 ---
 
 # How-To Guides
 
-Use the following guides to configure HARP, build its images, install it on supported systems, and profile an application.
+## Prerequisites
 
-## WAYS to configure HARP to setup applications for profiling:
-1. Configure HARP with TAPIS to execute HARP and applications to profile as container images. 
-2. Install HARP as a loadable module on OSC or localbox.
+HARP UI does every cluster operation through Tapis (Systems, Files, Apps, Jobs); it never touches a cluster file system directly. Before profiling an application you need:
 
-## WAY 1. Configure HARP with TAPIS to configure HARP and applications to profile as container images. 
+1. **Execution systems and credentials** registered in Tapis for each cluster (e.g. OSC Pitzer, TACC). The notebooks [`Executing_HARP_using_TAPIS*.ipynb`](Notebooks/) show how.
+2. **An allocation account** on each system.
+3. **A sweep container** for your application, and **a Tapis app** for it whose `notes.harp` block describes its command, work folder and parameters.
 
+## Package your application for sweeps
 
-**NOTE: IMPORTANT INFORMATION - PLEASE READ**
-```
-1. TAPIS executes only containerized applications, so HARP (HARP framework) and the Application should be containerized.  
-2. Profiling an application HARP Framework with TAPIS is tested on both TACC and OSC systems.
-3. Colab Notebooks server as examples for running HARP profiling for a sample Euler application using TAPIS. Make a COPY of the colab or download the Notebooks to execute them. 
-4. HARP Framework and example containers could be executed on local box user docker or apptaner servers without TAPIS integration. 
-```
-
-Follow through the Colab notebooks for profiling the HARP Container application using TAPIS:
-1. For TACC stampede2 example use: https://drive.google.com/file/d/1JyAHUxxZ3pKMXGs28UXMQJn5QZmti1yS/view?usp=sharing
-2. For OSC pitzer example use:https://drive.google.com/file/d/1w8qCTWiOjvn8CCx6FqvZzG8ZJBRKy4M3/view?usp=sharing
-Alternatively, download the example notebook from the "Notebooks" folder
-  
-**Steps:**
-
-- 1.Create a new HARP Image [or] using the pre-made HARP Image
-- 2.Create an image for the application to be profiled using HARP Framework (Image)
-- 3.Refer to Section "_Using HARP to profile an application and predict the execution time_" for steps to execute the container in localbox or a CI (like OSC or TACC nodes) with or without TAPIS.
-  
-
-1. **Create a HARP Image using Docker Environment**
-
-a. Use the 'Dockerfile_HARP_local' file to create an Image for executing the Framework on a local box using 'docker build'. 
-```
-docker build -f DockerFiles/Dockerfile_HARP_local -t harp-framework-local:2.0.0 .
-
-```
-b. Use the Dockerfile_HARP_CI file to create an Image for executing the Framework on CI (like TACC or OSC) using 'docker build'. 
-
-```
-docker build -f DockerFiles/Dockerfile_HARP_CI -t harp-framework-ci:2.0.0 .
-```
-
-c. Push the Image to the docker hub or upload it to any web-accessible location. 
-
-Push the image to a web-accessible location like dockerhub using the following command:
-```
-docker push <DockerHub>/harp-framework-[local|ci]:2.0.0
-```
-
-If you already have access to the pre-compiled images, use these copies of the HARP image from our repository 
-a. Use the harp-framework-local:2.0.0  file for executing the Framework on a local box. 
-b. Use the harp-framework-ci:2.0.0  file for executing the Framework on TACC or OSC Systems. 
-
-**Note**: Execute the 'docker build' command from the main folder 'harp'.
-
-2. **Create an image for the application to be profiled using HARP Framework (Image)**
-
-Using the Image created in "Step 1" or the respective Image from the ICICLE repository, create an Image for the application to be profiled using the HARP Framework. We refer to the application to be profiled as a 'target application'. <br />
-
-Steps for creating a DockeFile for the target application and building an image using the 'Dockerfile_App_Template' template. <br />
-
-a. Edit the 'ProfileApplication.sh' entry point file to execute the HARP with the pipeline configurations JSON. Replace "pipeline_config.json" with your desired pipeline configuration file in the application work folder.
-```
-harp pipeline_config.json
-```
-
-b. Create a DockerFile for the target application from the following template
-```
-FROM <web-accessible-path-to-image-hub>/harp-framework-[local|ci]:2.0.0
-
-# 1. Add application required installations.
-# none for Euler example
-
-# 2. Target application setup 
-# Set the APP_PATH to the location with your application work folder (target application to be profiled) and APP_NAME to the work folder name
-ENV APP_PATH="<path-to-target-application>/<target-application-work-folder>"
-ENV APP_NAME="<target-application-work-folder>"
-
-# Add the target application work folder to the Image
-ADD $APP_PATH /app/$APP_PATH
-
-# 3. Copy the execution endpoint file and set it
-COPY DockerFiles/ProfileApplication.sh /app/ProfileApplication.sh
-
-ENTRYPOINT ["sh", "/app/ProfileApplication.sh"]
-```
-
-c. Build the application Image (these commands show building an image for an example application 'Euler Number')
-a. Use the 'Dockerfile_App_EulerNumber' file to create an Image for executing the Framework on a local box using 'docker build'. 
-```
-docker build -f DockerFiles/Dockerfile_App_EulerNumber -t harp-app-eulernumber-[local|ci]:2.0.0 .
-```
-b. Push the Image to the docker hub or upload it to any web-accessible location. 
-
-Push the image to a web-accessible location like dockerhub using the following command:
-```
-docker push <DockerHub>/harp-app-eulernumber-[local|ci]:2.0.0 
-```
-
-Use an existing copy of the Euler Number application image from our repository. 
-
-3. **Refer to Section "_Using HARP to profile an application and predict the execution time_" for steps to execute the container in localbox or a CI (like OSC or TACC nodes) with or without TAPIS.**
-
-## WAY 2. Installation-based HARP setup
-* Dependency: Linux, Python 3.9+, git, pip, mpich, psutil, jq(command line JSON parser https://stedolan.github.io/jq/)
-* On supercomputers (OSC), it should be installed at a location accessible from the parallel file system
-### **Follow these steps to set up HARP as a loadable software module on the Ohio Supercomputer (OSC):**
-  ```bash
-  git clone https://github.com/ICICLE-ai/harp.git
-  cd harp
-  chmod 755 install-osc-harp.sh
-  ./install-osc-harp.sh
-  ```
-  If the installation fails, please re-run the script 'install-osc-harp.sh' after deleting the environment 'harp-env' and running the cleanup.sh in the install directory. 
-  ```bash
-  conda remove --name harp-env --all
-  ./cleanup.sh
-  ```
-This setup installs miniconda, CODAR Cheetah (https://github.com/CODARcode/cheetah), TensorFlow, psutil, pandas, and scikit-learn and configures the Harp framework. Please follow the installation prompts to go ahead with the setup. This installation takes 30-40 mins to finish the setup on Owens login node.
-#### Loading the HARP module on OSC
+1. Build and push the job container, starting from [`DockerFiles/Dockerfile_App_Template_Sweep`](DockerFiles/Dockerfile_App_Template_Sweep) (the Euler example is [`Dockerfile_App_EulerNumber_Sweep`](DockerFiles/Dockerfile_App_EulerNumber_Sweep)):
    ```bash
-  module use $HOME/osc_apps/lmodfiles
-  module load harp 
-  export CONDA_HOME=<path_to_miniconda>/miniconda3
-  source $CONDA_HOME/bin/activate
-  source activate harp_env
+   docker build -f DockerFiles/Dockerfile_App_EulerNumber_Sweep -t <hub>/harp-sweep-eulernumber:1.0.0 .
+   docker push <hub>/harp-sweep-eulernumber:1.0.0
    ```
-**NOTE**
+   Make the image public so the clusters can pull it.
+2. Register (or update) the Tapis app with [`Notebooks/Create_HARP_Sweep_App_TAPIS.ipynb`](Notebooks/Create_HARP_Sweep_App_TAPIS.ipynb). It can also run one small test job.
 
-Things to consider while installing the Framework on OSC
-1. [OSC Installation] The installer creates a conda environment, "harp_env" on OSC and uses this environment to execute the Framework. The environment name is used in a couple of Cheetash configurations and hence is mandated to use the same name, "harp_env," while installing the application. Please delete the environment if it already exists with this name before installing the Framework.
-2. Upon successful installation, the install script will return the below response:
- (OSC Install Script) Generating Module File Step: /users/PAS0536/swathivm/osc_apps/lmodfiles/harp/1.0.lua
- (OSC Install Script) Generating Module File Step Finished
- Finished at Thu Mar 16 11:44:13 EDT 2023
- Execution time: 1965 seconds
+Inside each job, [`job_runner/harp_job_runner.py`](job_runner/harp_job_runner.py) runs its parameter combinations x repetitions, measures walltime and hardware, and writes `harp_profile.csv` and `harp_progress.json` to the Tapis output directory.
 
-### **Follow these steps to set the HARP framework on a standalone Linux system:**
-* Use these commands to install the dependencies using pip
-  ```bash
-  pip install psutil
-  pip install tensorflow
-  pip install pandas
-  pip install scikit-learn
-  ```
-* Download the source code into the <install-dir> and set it to HARP_HOME
-  ```bash
-  git clone https://github.com/ICICLE-ai/harp.git
-  export HARP_HOME=<path-to-download-folder>/harp
-  ```
-* Install Cheetah
-  ```bash
-  cd $HARP_HOME/cheetah
-  pip install --editable .
-  ```
-* Ensure the scripts have '**execute**' privileges
-  ```bash
-  cd $HARP_HOME/pipeline/bin/local
-  chmod 755 harp
-  cd $HARP_HOME/cheetah/bin
-  chmod 755 *
-  ```
-* Set the HARP pipeline and Cheetah binaries in the PATH
-  ```bash
-  export PATH=$HARP_HOME/pipeline/bin/local:$HARP_HOME/cheetah/bin:$PATH
-  ```
- The HARP pipeline is ready to be used once the HARP_HOME and binaries are set in PATH. 
- 
-**NOTE**
-**HARP has been tested on Ownes and Pitzer (OSC) and a standalone Linux system.**
+## Register the build app (Tapis model training)
 
-Things to consider while installing the dependencies on standalone Linux systems:
-1. if you do not have root or admin privileges, please consult your package manager on installing mpich and operator dependencies. 
+[`DockerFiles/Dockerfile_HARP_Build`](DockerFiles/Dockerfile_HARP_Build) packages the pipeline and [`job_runner/harp_build_runner.py`](job_runner/harp_build_runner.py). Push it as `harp-build:1.0.0` and register it with `Create_HARP_Sweep_App_TAPIS.ipynb` using `APP = "build"`; its notes carry `role: "build"`, which is how the UI finds it. Without it, builds can still run on the computer hosting the server.
 
+## Run HARP UI as a shared HTTPS server
 
-   
-## Using HARP to profile an application and predict the execution time
-### Using the HARP (version 2.0.0) to profile an application (e.g., Euler Number) on local box and CIs (OSC and TACC) using TAPIS
+The server receives Tapis access tokens, so anything other than `localhost` must use HTTPS.
 
-a. To profile the application, execute the application image built from the HARP parent image using the following commands on the localbox:
-```
-[optional] docker pull ghcr.io/icicle-ai/harp-app-eulernumber-local:2.0.0
-docker run --mount source=HARP_Store,target=/scratch ghcr.io/icicle-ai/harp-app-eulernumber-local:2.0.0
-```
-b. To profile the application using HARP on OSC or TACC <br />
-
-i. Without TAPIS: Login into a compute node on OSC or TACC and run the following:
-#### for OSC Nodes
-```
-module load singularity
-[optional] singularity pull docker://ghcr.io/icicle-ai/harp-app-eulernumber-ci:2.0.0
-singularity run docker://ghcr.io/icicle-ai/harp-app-eulernumber-ci:2.0.0 osc /fs/scratch/PAS2271/swathivm/
-```
-#### For TACC Nodes (Stampede2)
-```
-module load tacc-apptainer
-[optional] singularity pull docker://ghcr.io/icicle-ai/harp-app-eulernumber-ci:2.0.0
-singularity run docker://ghcr.io/icicle-ai/harp-app-eulernumber-ci:2.0.0 tacc none
+```bash
+pip install -r harp_server/requirements.txt
+cd harp_server
+./scripts/make_dev_cert.sh certs <server-hostname>      # testing only: self-signed
+HARP_SSL_CERT=certs/cert.pem HARP_SSL_KEY=certs/key.pem python3 -m harp_server.serve
 ```
 
-ii. With TAPIS: Follow the instructions in the '**Executing_HARP_using_TAPIS.ipynb**' notebook in the 'Notebooks' folder to register OSC and TACC systems on TAPIS and profile the application 'harp-app-eulernumber-ci:2.0.0' using HARP
+Open `https://<server-hostname>:8443`. For real use, point `HARP_SSL_CERT` / `HARP_SSL_KEY` at an institutional or Let's Encrypt certificate. Behind nginx, Caddy or Apache, run `HARP_BEHIND_PROXY=1 HARP_PORT=8000 python3 -m harp_server.serve` and forward with an `X-Forwarded-Proto` header.
 
+| Variable | Purpose | Default |
+|---|---|---|
+| `HARP_SSL_CERT`, `HARP_SSL_KEY` | Certificate and key (PEM) | required unless behind a proxy |
+| `HARP_HOST`, `HARP_PORT` | Listen address | `0.0.0.0:8443` |
+| `HARP_BEHIND_PROXY` | Serve plain HTTP and trust the proxy's forwarded headers | off |
+| `HARP_SERVER_DATA` | Campaign and build state directory | `~/.harp_server` |
+| `HARP_POLL_SECONDS` | Tapis polling interval | `15` |
+| `HARP_TAPIS_BASE_URL` | Tenant used to validate tokens | `https://icicleai.tapis.io` |
+| `HARP_PORTAL_ORIGINS` | Exact TapisUI origins allowed to frame HARP and hand off tokens | unset (framing disabled) |
+| `HARP_SESSION_SAME_SITE` | Session cookie policy (`strict`, `lax`, `none`; `none` for the iframe) | |
+| `HARP_ALLOW_HTTP` | Accept logins over plain HTTP (never on a shared server) | off |
 
-### Using the HARP (version 1.0.0) module, load the OSC of the HARP binary on the local box
-1. Navigate to the target application folder and copy all the files from /Post_Execution_Scripts/basic into the current folder. 
-2. Edit path in post-script.sh to point to the target application directory
-3. Execute the Framework as per the configurations in file 'train_config.json' as follows:
- ```bash
-  cd <path_to_application>
-  chmod 755 *
-  harp <pipeline-configration>.json
-  ```
-4. The results of the Framework are stored in the predictions.json file under the target application folder.
-Please find the sample application under the example folder and follow the readme file to execute the Framework against profiling and estimating the resource needs.
+## Deploy as an ICICLE Tapis Pod (TapisUI)
 
+Build and publish the server image ([`harp_server/Dockerfile`](harp_server/Dockerfile)), create the `harpdata` volume, and register the Pod template and Pod with [`deploy/deploy_pod.py`](deploy/deploy_pod.py):
 
-### Supported Systems
-System Name | Version V1 Support | Version V2 Support | CPU | GPU 
-:-----------| :---------------| :---------------| :---------------| :---------------
-Local Linux machines | :white_check_mark: | :white_check_mark: | :white_check_mark: 
-Owens (OSC) | :white_check_mark: | :white_check_mark: |  :white_check_mark: | :white_check_mark: 
-Pitzer (OSC) | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: 
-Frontera (TACC) |  | :white_check_mark: |  :white_check_mark: | :white_check_mark: 
-Stampede2 (TACC) |  | :white_check_mark: | :white_check_mark: | :white_check_mark: 
+```bash
+docker build -f harp_server/Dockerfile -t ghcr.io/manikyaswathi/harp-ui:2.0.0 .
+docker push ghcr.io/manikyaswathi/harp-ui:2.0.0
+
+export TAPIS_BASE_URL=https://icicleai.tapis.io
+export TAPIS_ACCESS_TOKEN='<token>'
+export HARP_IMAGE=ghcr.io/manikyaswathi/harp-ui:2.0.0
+python deploy/deploy_pod.py
+curl https://harp.pods.icicleai.tapis.io/healthz      # {"status":"ok"}
+```
+
+Full steps, portal settings and operational constraints (run a single replica) are in [`deploy/README.md`](deploy/README.md).
+
+## Run the tests
+
+```bash
+cd harp_server && python3 -m pytest -q tests
+```
+
+The tests use an in-memory fake of Tapis ([`tests/fake_tapis.py`](harp_server/tests/fake_tapis.py)); the job runner is tested by really running the Euler example.
+
+## Rebuild the offline demo
+
+After changing [`profiling.html`](profiling.html), regenerate the demo copy with `python3 DEMO/ui/build_demo.py`.
+
+---
+
+# Explanation
+
+## Why HARP
+
+Each HPC workflow has its own compute, memory and I/O profile, and users routinely over- or under-request resources because they lack a history of runs to go by. HARP generates that history systematically, with many "scaled-down" (SD) runs, a few selective "full-scale" (FS) runs and held-out test_data runs, then trains regression models to estimate runtime for a target application on a given system and queue.
+
+<img src="Documents/HARP_Pipeline.png" alt="HARP pipeline: generate training data, build regression models, select a model" width="75%">
+
+## From notebooks to the UI
+
+Earlier versions ran the whole Cheetah campaign inside **one** container, so one Tapis job ran every sweep combination on one machine, driven from a notebook or an installed module. HARP UI keeps the same pipeline and data format but changes how the generate phase runs:
+
+```
+ Browser UI ──► HARP server ──► Tapis Jobs ──► job on system A ─┐
+  (Generate,     expand combos,   (one job      job on system B ─┼─► harp_profile.csv per job
+   Build,        split into jobs,  per chunk)   job on system C ─┘
+   Estimate)     throttle, poll  ◄── Tapis Files: merge ──► <storage>/<campaign>/<app>_<timestamp>.csv
+```
+
+- **Split** spreads jobs round-robin over the selected systems; **replicate** runs every job on every system to profile across hardware.
+- Each job's hardware comes from its queue (cores, memory, walltime) and is checked against the queue's Tapis limits before submission.
+- The server respects each system's concurrent-job limit, reads live progress through Tapis Files, and merges CSVs when every job ends. Failed runs go to `harp_failures.csv`, so they never pollute training data.
+- The merged CSV keeps the pipeline's columns (`run_config, run_type, sys_*, run_<param>, walltime`), so the existing build modules (`pipeline/modules/pipeline.py`: preprocessing with outlier removal, scaling and PCA, then model training) consume it unchanged.
+
+## The three tabs
+
+| Tab | Steps |
+|---|---|
+| **HARP Generate** | Configure sweeps → Review & submit → Profiled data → Jobs |
+| **HARP Build** | Training data → Models & where → Trained models |
+| **HARP Estimate** | Configure → Select model → Estimates |
+
+The **?** buttons in the UI explain each term: SD / FS / test_data runs, sweeps and campaigns, models, training sets, and how models are scored (average error and how often a model predicts too low on test_data runs).
+
+## Security and multi-user isolation
+
+- HARP accepts Tapis access tokens only, never usernames or passwords. The token stays on the server; the browser gets an HttpOnly session cookie that JavaScript cannot read.
+- Inside TapisUI, the iframe receives the token from its exact parent origin via `postMessage`. Tokens are never placed in URLs or browser storage.
+- Every sweep, job, dataset and build belongs to the Tapis user **and** tenant that created it, and is read through that user's own token.
+- When a token expires, running sweeps pause (`WAITING_FOR_LOGIN`) and resume once the user signs in again. Campaign state is stored as JSON, so it survives server restarts.
+
+## Repository layout
+
+| Path | Contents |
+|---|---|
+| [`profiling.html`](profiling.html) | The single-page UI |
+| [`harp_server/`](harp_server/) | FastAPI server: plan, sweep, campaign tracking, Tapis gateway, builds, tests |
+| [`job_runner/`](job_runner/) | Code that runs inside profiling and build jobs |
+| [`pipeline/`](pipeline/) | HARP data preprocessing and model training modules |
+| [`DockerFiles/`](DockerFiles/) | Sweep, build and legacy HARP container definitions |
+| [`deploy/`](deploy/) | Tapis Pods templates and deployment script |
+| [`Notebooks/`](Notebooks/) | Tapis system/app registration notebooks |
+| [`examples/`](examples/) | Euler number and YOLO target applications |
+| [`DEMO/`](DEMO/) | Offline UI demo and screenshots |
+| [`cheetah/`](cheetah/), [`install-script-source/`](install-script-source/), [`Post_Execution_Scripts/`](Post_Execution_Scripts/) | Used by the legacy container and module workflows |
+
+## Supported systems
+
+HARP UI runs jobs on any Tapis-registered execution system you have credentials and an allocation for. It has been used with OSC (Pitzer, Owens) and TACC systems, on CPU and GPU queues (GPU queues get `--nv` automatically).
