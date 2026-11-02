@@ -7,8 +7,8 @@ configurations, plus allocations per system and a results folder. Everything
 else is decided here, from TAPIS, so the browser is never trusted with it:
 
 - the command, work folder and parameter types come from the app's TAPIS notes;
-- cores, memory and time limit default from the queue (TAPIS LogicalQueue) and
-  are refused when they exceed its limits;
+- cores default to 1 per job; memory defaults to 4 GB per core; time defaults
+  from the sweep. All three are refused when they exceed TAPIS queue limits;
 - every job uses one node; GPU queues get --nv; configurations on one queue
   share its per-user job limit.
 """
@@ -77,16 +77,21 @@ def resolve_target(system, queue_name, cfg, repetitions, timeout_min, configs_on
     where = f"{system['id']}/{queue_name or 'default queue'}"
     if not system.get("can_exec") or system.get("enabled") is False:
         raise SpecError(f"{system['id']} cannot run jobs")
+    if (system.get("access") or {}).get("accessible") is False:
+        raise SpecError(f"{system['id']} access is unavailable: verify its TAPIS credentials and remote host access")
     queues = system.get("queues") or []
     q = next((x for x in queues if x.get("name") == queue_name), None)
     if q is None and (queues or queue_name):
         raise SpecError(f"{system['id']} has no queue {queue_name!r}")
     q = q or {}
+    if q.get("configured_max_nodes") == 0:
+        raise SpecError(f"{where} cannot accept HARP's one-node jobs because its TAPIS logical queue "
+                        "has maxNodeCount=0; a system administrator must set it to at least 1")
     if (_limit(q, "min_nodes") or 1) > 1:
         raise SpecError(f"{where} needs at least {q['min_nodes']} nodes; profiling jobs use 1 node")
 
     max_cores, max_mem, max_min = _limit(q, "max_cores"), _limit(q, "max_memory_mb"), _limit(q, "max_minutes")
-    cores = _positive_int(cfg.get("cores"), f"{where}: cores") or max_cores or 1
+    cores = _positive_int(cfg.get("cores"), f"{where}: cores") or 1
     if max_cores and cores > max_cores:
         raise SpecError(f"{where} allows at most {max_cores} cores per node; asked for {cores}")
     if (_limit(q, "min_cores") or 1) > cores:
@@ -136,7 +141,7 @@ def _slug(text, n=20):
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:n] or "app"
 
 
-def build_sweep(sweep, apps, systems, allocations, storage, stamp):
+def build_sweep(sweep, apps, systems, allocations, storage, stamp, queue_validator=None):
     """One sweep of the plan -> (campaign spec, resolved targets). Raises SpecError."""
     app = apps.get(sweep.get("app_id"))
     if app is None:
@@ -173,6 +178,10 @@ def build_sweep(sweep, apps, systems, allocations, storage, stamp):
         if isinstance(systems[sid], Exception):
             raise SpecError(f"could not read {sid} from TAPIS: {systems[sid]}")
         queue = t.get("queue") or None
+        system_queue = next((q for q in systems[sid].get("queues") or [] if q.get("name") == queue), {})
+        reason = queue_validator(systems[sid], system_queue) if queue_validator else None
+        if reason:
+            raise SpecError(reason)
         r = resolve_target(systems[sid], queue, t, reps, timeout, per_queue[(sid, queue)], allocations.get(sid))
         sig = (sid, queue, r["cores_per_node"], r["memory_mb"], r["max_minutes"])
         if sig in seen:
@@ -189,7 +198,7 @@ def build_sweep(sweep, apps, systems, allocations, storage, stamp):
     return spec, targets
 
 
-def build_plan(plan, gw):
+def build_plan(plan, gw, queue_validator=None):
     """Every sweep of the plan -> [{"name", "spec" | "error", "targets"}], plus a storage error.
     Systems and apps are read from TAPIS once per call."""
     storage = plan.get("storage") or {}
@@ -216,9 +225,34 @@ def build_plan(plan, gw):
             sid = t.get("system_id")
             if sid and sid not in systems:
                 try:
-                    systems[sid] = gw.get_system(sid)
+                    system = gw.get_system(sid)
+                    system["access"] = gw.check_system_access(sid)
+                    systems[sid] = system
                 except Exception as e:   # reported against the sweeps that use it
                     systems[sid] = e
+    # Storage and copy destinations also need credentials. Check them here so
+    # Review can reject the whole plan before any job or directory is created.
+    storage_systems = [storage["system_id"]]
+    if move:
+        storage_systems.append(move["system_id"])
+    if not storage_error:
+        for sid in dict.fromkeys(x for x in storage_systems if x):
+            try:
+                system = systems.get(sid)
+                if system is None or isinstance(system, Exception):
+                    system = gw.get_system(sid)
+                if system.get("enabled") is False:
+                    storage_error = f"TAPIS system {sid} is disabled"
+                    break
+                access = gw.check_system_access(sid)
+                system["access"] = access
+                if access.get("accessible") is False:
+                    storage_error = (f"TAPIS system {sid} access is unavailable; verify its credentials and "
+                                     "remote host access before using it for results")
+                    break
+            except Exception as e:
+                storage_error = f"could not read TAPIS system {sid}: {e}"
+                break
     allocations = {k: v for k, v in (plan.get("allocations") or {}).items() if isinstance(v, str)}
     stamp = datetime.now(timezone.utc).strftime("%y%m%d%H%M")
 
@@ -229,7 +263,7 @@ def build_plan(plan, gw):
             if (s.get("app_id"), s.get("name")) in names:
                 raise SpecError(f"the plan has two sweeps called {s.get('name')!r} for this app")
             names.add((s.get("app_id"), s.get("name")))
-            spec, targets = build_sweep(s, apps, systems, allocations, storage, stamp)
+            spec, targets = build_sweep(s, apps, systems, allocations, storage, stamp, queue_validator)
             if move:
                 spec["move_to"] = move
             out.append({"name": label, "spec": spec, "targets": targets})

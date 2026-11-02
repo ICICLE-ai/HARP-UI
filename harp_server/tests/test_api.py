@@ -2,7 +2,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from harp_server.app import create_app
+from harp_server.app import _decorate_queues, create_app
 from harp_server.tapis_gateway import TapisError
 from fake_tapis import FakeGateway
 from specs import euler_spec
@@ -159,6 +159,7 @@ def test_profiling_page_is_served_with_its_own_csp(ctx):
     client, _, _ = ctx
     r = client.get("/profiling.html")
     assert r.status_code == 200 and "Profiling" in r.text
+    assert r.headers["cache-control"] == "no-store"
     csp = r.headers["content-security-policy"]
     assert "fonts.googleapis.com" in csp and "'unsafe-inline'" in csp
     assert 'name="access_token"' in r.text
@@ -257,6 +258,48 @@ def test_exec_systems_come_with_their_queues(ctx):
     assert systems[0]["queues"][0]["name"] == "serial" and systems[0]["queues"][0]["default"]
 
 
+def test_inventory_returns_execution_and_storage_systems_with_access_state(ctx):
+    client, _, _ = ctx
+    _login(client)
+    inventory = client.get("/api/tapis/inventory").json()
+    assert {s["id"] for s in inventory["systems"]} == {"pitzer", "stampede", "storage"}
+    assert [s["id"] for s in inventory["exec_systems"]] == ["pitzer", "stampede"]
+    assert all(s["access"]["status"] == "unknown" for s in inventory["systems"])
+
+
+@pytest.mark.parametrize(("system_id", "cluster", "valid", "invalid"), [
+    ("ascend-tapis", "Ascend", "nextgen", "batch"),
+    ("pitzer-tapis", "Pitzer", "cpu-exp", "serial"),
+    ("cardinal-tapis", "Cardinal", "cache", "parallel"),
+])
+def test_harp_only_queue_overlay_uses_each_osc_partition_catalog(system_id, cluster, valid, invalid):
+    system = {"id": system_id, "queues": [
+        {"name": "profile", "hpc_queue": invalid, "configured_max_nodes": 4},
+        {"name": "documented", "hpc_queue": valid, "configured_max_nodes": 16},
+        {"name": "disabled", "hpc_queue": valid, "configured_max_nodes": 0},
+    ]}
+    _decorate_queues(system)
+    invalid_queue, valid_queue, disabled_queue = system["queues"]
+    assert invalid_queue["void_reason"] == (
+        f"TAPIS queue 'profile' maps to HPC queue {invalid!r}, which is not a documented {cluster} partition. "
+        "This is a TAPIS configuration issue.")
+    assert valid_queue["void_reason"] is None
+    assert disabled_queue["void_reason"] == (
+        "TAPIS queue 'disabled' has maxNodeCount=0. This is a TAPIS configuration issue.")
+    assert system["queue_reference"]["label"] == f"Documented {cluster} partitions"
+    assert valid in system["queue_reference"]["partitions"]
+    assert invalid not in system["queue_reference"]["partitions"]
+
+
+def test_system_access_endpoint_performs_file_listing_probe(ctx):
+    client, _, gateways = ctx
+    _login(client)
+    result = client.get("/api/tapis/systems/pitzer/access").json()
+    client.get("/api/tapis/systems/pitzer/access")
+    assert result["system_id"] == "pitzer" and result["accessible"] is True
+    assert gateways["alice"].access_checks[-2:] == [("pitzer", True), ("pitzer", True)]
+
+
 def test_all_jobs_lists_every_job_with_app_and_queue(ctx):
     client, manager, _ = ctx
     _login(client)
@@ -265,6 +308,21 @@ def test_all_jobs_lists_every_job_with_app_and_queue(ctx):
     assert len(jobs) == 8 and {j["sweep"] for j in jobs} == {"a", "b"}
     j = next(j for j in jobs if j["system_id"] == "pitzer")
     assert j["app_id"] == "harp-sweep-euler" and j["queue"] == "serial" and j["status"] == "NOT_SUBMITTED"
+    assert "no TAPIS job exists yet" in j["status_explanation"]
+
+
+def test_failed_job_includes_classified_tapis_error(ctx):
+    client, manager, gateways = ctx
+    _login(client)
+    _create(ctx, euler_spec(name="failure"))
+    manager.tick()
+    gw = gateways["alice"]
+    uuid = gw.submitted[0]
+    gw.jobs[uuid].update(status="FAILED", condition="JOB_LAUNCH_FAILURE",
+                         message="Batch job submission failed: Required partition not available (inactive or drain)")
+    job = next(j for j in client.get("/api/jobs").json() if j["uuid"] == uuid)
+    assert job["failure"]["code"] == "queue_unavailable"
+    assert job["failure"]["raw"].startswith("Batch job submission failed")
 
 
 def test_jobs_show_runs_done_while_running_and_after(ctx):

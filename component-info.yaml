@@ -1,6 +1,6 @@
 # ICICLE component catalog metadata for HARP.
 #
-# Repository transfer TODO:
+# Catalog review TODO:
 # - Confirm the catalog owner and primary thrust with the ICICLE maintainer.
 # - Confirm whether Tapis, Tapis Pods, or another ICICLE catalog component must
 #   be represented through hasDependentComponents; that key is omitted until a

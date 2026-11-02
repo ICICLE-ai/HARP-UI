@@ -344,6 +344,7 @@ select:focus,input.ti:focus{outline:none;border-color:var(--teal)}
   border-radius:10px;letter-spacing:.03em}
 .pill.done{background:var(--ok-50);color:var(--ok)}
 .pill.none{background:var(--orange-50);color:var(--orange-700)}
+.pill.bad{background:#FBE9E9;color:#A23A3A}
 
 .jsel{margin-top:13px}
 .jobrow{display:flex;gap:11px;align-items:center;padding:9px 0;
@@ -480,6 +481,8 @@ select:focus,input.ti:focus{outline:none;border-color:var(--teal)}
   padding:9px 12px;border:1px solid var(--line);border-radius:9px;margin-bottom:6px;cursor:pointer;background:#fff}
 .qrow:hover{border-color:#c7d3d8}
 .qrow.on{border-color:var(--teal);background:var(--teal-50)}
+.qrow.voided{border-style:dashed;background:#F7F8F8;opacity:.78}
+.qrow.voided .qn{color:var(--muted)}
 .qrow input[type=checkbox]{width:18px;height:18px;accent-color:var(--teal);margin:0}
 .qrow .qn{font-weight:600;color:var(--navy);font-size:14px}
 .qrow .qn .am{display:block;font-weight:400}
@@ -542,6 +545,7 @@ select:focus,input.ti:focus{outline:none;border-color:var(--teal)}
 .dt .num{text-align:right;font-family:"JetBrains Mono",monospace}
 .dt .wt{color:var(--teal-700);font-weight:600}
 .dt .err{color:#A23A3A;font-size:11.5px;white-space:normal;max-width:260px;margin-top:3px}
+.dt .statehelp{color:var(--muted);font-size:11.5px;line-height:1.35;white-space:normal;max-width:260px;margin-top:3px}
 .dt .uuid{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--muted)}
 .dt .sortb{font:inherit;color:inherit;letter-spacing:inherit;text-transform:inherit;background:none;border:none;padding:0;cursor:pointer}
 .dt .sortb:hover{color:var(--navy)}
@@ -555,6 +559,16 @@ select:focus,input.ti:focus{outline:none;border-color:var(--teal)}
 .st.done{background:var(--ok-50);color:var(--ok)}.st.run{background:var(--teal-50);color:var(--teal-700)}
 .st.warn{background:var(--orange-50);color:var(--orange-700)}.st.bad{background:#FBE9E9;color:#A23A3A}
 .st.wait{background:#EFF1F2;color:var(--muted)}
+.cred{display:inline-flex;align-items:center;gap:5px;font-family:"JetBrains Mono",monospace;font-size:10px;font-weight:600;
+  text-transform:uppercase;letter-spacing:.04em;padding:3px 7px;border-radius:6px;white-space:nowrap}
+.cred:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.cred.ok{background:var(--ok-50);color:var(--ok)}
+.cred.no{background:#FBE9E9;color:#A23A3A}
+.cred.unknown{background:#EFF1F2;color:var(--muted)}
+.failgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:12px 0 16px}
+.failbox{border:1px solid var(--line);border-left:4px solid #A23A3A;border-radius:8px;padding:10px 12px;background:#fff}
+.failbox b{display:block;color:var(--navy);font-size:13px}.failbox span{font-size:11.5px;color:var(--muted)}
+.failraw{max-width:420px;white-space:normal;overflow-wrap:anywhere}
 .fsel{width:auto;min-width:130px;font-size:12.5px;padding:7px 10px}
 .updated{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--muted)}
 .more{font-size:12.5px;color:var(--muted);margin-top:10px;display:flex;gap:12px;align-items:center}
@@ -641,14 +655,14 @@ select:focus,input.ti:focus{outline:none;border-color:var(--teal)}
 .appmeta .appfrom{width:100%}
 .movedet{margin:4px 0 14px;border:1px dashed var(--line);border-radius:9px;padding:8px 12px}
 .stabs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:18px 0 10px}
-.st{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:12px 16px;border-radius:var(--r);
+.stabs>.st{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:12px 16px;border-radius:var(--r);
   border:1px solid var(--line);background:#fff;cursor:pointer;font-family:inherit;color:var(--muted)}
-.st b{font-family:"Space Grotesk",sans-serif;font-size:17px;font-weight:600;color:var(--navy)}
-.st span{font-size:12.5px}
-.st:hover{border-color:#c7d3d8}
-.st[aria-selected="true"]{background:var(--navy);border-color:var(--navy);color:#cfd9e3}
-.st[aria-selected="true"] b{color:#fff}
-@media(max-width:640px){.stabs{gap:6px}.st{padding:10px}.st b{font-size:14px}.st span{display:none}}
+.stabs>.st b{font-family:"Space Grotesk",sans-serif;font-size:17px;font-weight:600;color:var(--navy)}
+.stabs>.st span{font-size:12.5px}
+.stabs>.st:hover{border-color:#c7d3d8}
+.stabs>.st[aria-selected="true"]{background:var(--navy);border-color:var(--navy);color:#cfd9e3}
+.stabs>.st[aria-selected="true"] b{color:#fff}
+@media(max-width:640px){.stabs{gap:6px}.stabs>.st{padding:10px}.stabs>.st b{font-size:14px}.stabs>.st span{display:none}}
 .tabs4[hidden]{display:none!important}
 .syshead .acct{display:flex;align-items:center;gap:6px;margin-left:auto}
 .syshead .acct label{font-family:"JetBrains Mono",monospace;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
@@ -657,6 +671,7 @@ select:focus,input.ti:focus{outline:none;border-color:var(--teal)}
 .erow{display:grid;grid-template-columns:24px minmax(120px,1fr) minmax(140px,2fr) 90px;gap:8px 12px;align-items:center;
   padding:9px 12px;border:1px solid var(--line);border-radius:9px;margin-bottom:6px;background:#fff}
 .erow.on{border-color:var(--teal);background:var(--teal-50)}
+.erow.voided{border-style:dashed;background:#F7F8F8;opacity:.78}
 .erow .qn{font-weight:600;color:var(--navy);font-size:14px}
 .erow .lim{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--muted);line-height:1.6}
 .erow .lim span{display:inline-block;margin-right:10px}
@@ -671,8 +686,19 @@ select:focus,input.ti:focus{outline:none;border-color:var(--teal)}
 .mopt .sc{font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--teal-700);text-align:right}
 #sweepTable td:first-child{white-space:normal;word-break:break-word;min-width:170px;max-width:240px}
 #sweepTable td:nth-child(5){white-space:normal;min-width:110px;max-width:180px}
-#jobsTable td:nth-child(2){white-space:normal;word-break:break-word;max-width:190px}
-#jobsTable td:nth-child(3){white-space:normal;word-break:break-all;max-width:190px}
+#jobsTable{min-width:1120px;table-layout:fixed}
+#jobsTable .jc-type{width:78px}#jobsTable .jc-context{width:180px}#jobsTable .jc-name{width:190px}
+#jobsTable .jc-target{width:170px}#jobsTable .jc-run{width:78px}#jobsTable .jc-state{width:210px}
+#jobsTable .jc-runs{width:94px}#jobsTable .jc-time{width:98px}#jobsTable .jc-duration{width:78px}#jobsTable .jc-id{width:190px}
+#jobsTable th,#jobsTable td{min-width:0;overflow:hidden}
+#jobsTable td{vertical-align:top;white-space:normal}
+#jobsTable .sortb{display:block;max-width:100%;white-space:normal;overflow-wrap:anywhere;text-align:inherit}
+#jobsTable .jclip{display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#jobsTable .jclip.subtle{color:var(--muted);font-weight:400}
+#jobsTable .err,#jobsTable .statehelp{max-width:100%;overflow-wrap:anywhere;word-break:break-word}
+#jobsTable .prog{width:100%;min-width:0;margin-top:4px}
+#jobsTable td:first-child .pill{max-width:100%;padding-left:5px;padding-right:5px;gap:3px}
+#jobsTable td:first-child .pill:before{display:none}
 #doneTable td:first-child,#doneTable td:nth-child(3){white-space:normal;word-break:break-all}
 .appsel{width:100%;font-size:15px;font-weight:500;color:var(--navy);padding:11px 12px}
 .appmeta{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:10px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--muted)}
@@ -749,7 +775,7 @@ select:focus,input.ti:focus{outline:none;border-color:var(--teal)}
           </div>
 
           <div class="card2" id="sysCard" hidden>
-            <div class="chead"><h3>Systems and queues</h3><span class="am">from TAPIS</span></div>
+            <div class="chead"><h3>Systems and queues</h3><button type="button" class="help" data-help="resources" aria-label="How do cores and memory map to TAPIS?" aria-expanded="false">?</button><span class="am">from TAPIS</span></div>
             <p class="sub">Tick every queue this sweep should run on, then open it to set cores, memory and time limit.
               Add more configurations to profile the same queue with different hardware; each one gets its own TAPIS jobs.</p>
             <div id="systems"></div>
@@ -824,8 +850,16 @@ select:focus,input.ti:focus{outline:none;border-color:var(--teal)}
         <div class="scroll"><table class="dt" id="sweepTable"></table></div>
         <p class="loginerr" id="sweepErr"></p>
       </div>
+      <div class="card2" id="failureCard" hidden>
+        <details id="failureDetails">
+          <summary><b>Failure details</b> <span class="am" id="failureCaption"></span></summary>
+          <p class="sub">HARP groups TAPIS and scheduler messages into common causes. Expand a raw error below when reporting it to an administrator.</p>
+          <div class="failgrid" id="failureSummary"></div>
+          <div class="scroll"><table class="dt" id="failureTable"></table></div>
+        </details>
+      </div>
       <div class="card2">
-        <div class="chead"><h3>TAPIS jobs</h3><span class="spacer"></span>
+        <div class="chead"><h3>TAPIS jobs</h3><button type="button" class="help" data-help="jobstates" aria-label="What do the job states mean?" aria-expanded="false">?</button><span class="spacer"></span>
           <select id="fApp" class="fsel" aria-label="Filter by app"></select>
           <select id="fKind" class="fsel" aria-label="Job type"><option value="">All job types</option><option value="profiling">Profiling jobs</option><option value="build">Build jobs</option></select>
             <select id="fStatus" class="fsel" aria-label="Filter by status">
@@ -1007,7 +1041,7 @@ const fmtMin = m => !m || m < 0 ? '–' : m >= 1440 ? +(m / 1440).toFixed(1) + '
 const ago = iso => { if (!iso) return ''; const m = Math.round((Date.now() - new Date(iso)) / 60000);
   return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' d ago'; };
 
-let APPS = [], SYSTEMS = [], CAMPS = [], JOBS = [];
+let APPS = [], SYSTEMS = [], ALL_SYSTEMS = [], CAMPS = [], JOBS = [];
 let panel = 'configure', jobsTimer = null, badgeTimer = null;
 
 /* =================================================================== data */
@@ -1026,28 +1060,61 @@ async function loadApps(){
   APPS = apps.filter(a => a.role !== 'build').map(a => toApp(a, runsByApp))   // the build app is not profiled.sort((x, y) => x.label.localeCompare(y.label));
 }
 const appName = id => (APPS.find(a => a.id === id) || {}).label || id;
-const qlist = s => s.queues && s.queues.length ? s.queues : [{name: '', default: true}];
+// Batch systems only show logical queues that TAPIS actually defines. A
+// non-batch execution system may legitimately use its implicit default queue.
+const qlist = s => s.queues && s.queues.length ? s.queues : (s.batch_scheduler ? [] : [{name: '', default: true}]);
+const activeQlist = s => qlist(s).filter(q => !q.void_reason);
 const qkey = (s, q) => s.id + '|' + (q.name || '');
 const isGpu = q => q.gpu ?? /gpu/i.test((q.name || '') + ' ' + (q.description || '') + ' ' + (q.hpc_queue || ''));
 function queueByKey(k){ for (const s of SYSTEMS) for (const q of qlist(s)) if (qkey(s, q) === k) return {s, q}; return null; }
+const accessState = s => (s.access || {}).accessible;
+const authText = s => accessState(s) === true ? 'system accessible' : accessState(s) === false ? 'access unavailable' : 'checking access';
+const authBadge = s => `<span data-access-system="${esc(s.id)}" class="cred ${accessState(s) === true ? 'ok' : accessState(s) === false ? 'no' : 'unknown'}" title="Checked with a read-only TAPIS Files listing">${authText(s)}</span>`;
+const systemOption = s => `${s.id}${s.host ? ' · ' + s.host : ''}${s.can_exec === false ? ' (storage)' : ''} — ${authText(s)}`;
 let ALLOC = store.get('harp-alloc', {});      // system id -> scheduler options, e.g. "-A PAS2271"
-async function loadSystems(){
-  const [execs, all] = await Promise.all([api('/api/tapis/exec-systems'), api('/api/tapis/systems').catch(() => [])]);
-  SYSTEMS = execs.filter(s => s.enabled !== false);
-  const storage = [...new Map([...SYSTEMS, ...all].map(s => [s.id, s])).values()];
-  $('storeSys').innerHTML = storage.map(s => `<option value="${esc(s.id)}">${esc(s.id)}${s.host ? ' · ' + esc(s.host) : ''}${
-    s.can_exec === false ? ' (storage)' : ''}</option>`).join('');
+function refreshSystemOptions(){
+  const storeValue = $('storeSys').value, moveValue = $('moveSys').value;
+  $('storeSys').innerHTML = ALL_SYSTEMS.map(s => `<option value="${esc(s.id)}">${esc(systemOption(s))}</option>`).join('');
   $('moveSys').innerHTML = '<option value="">Don\'t copy</option>' + $('storeSys').innerHTML;
+  if ([...$('storeSys').options].some(o => o.value === storeValue)) $('storeSys').value = storeValue;
+  if ([...$('moveSys').options].some(o => o.value === moveValue)) $('moveSys').value = moveValue;
+}
+function paintSystemAccess(system){
+  document.querySelectorAll('[data-access-system]').forEach(el => {
+    if (el.dataset.accessSystem !== system.id) return;
+    el.className = `cred ${accessState(system) === true ? 'ok' : accessState(system) === false ? 'no' : 'unknown'}`;
+    el.textContent = authText(system);
+  });
+}
+async function refreshSystemAccess(){
+  await Promise.all(ALL_SYSTEMS.map(async original => {
+    let access;
+    try { access = await api(`/api/tapis/systems/${encodeURIComponent(original.id)}/access`); }
+    catch (e) { access = {system_id: original.id, status: 'unavailable', accessible: false, error: e.message}; }
+    for (const list of [ALL_SYSTEMS, SYSTEMS]) {
+      const system = list.find(s => s.id === original.id);
+      if (system) { system.access = access; paintSystemAccess(system); }
+    }
+    refreshSystemOptions();
+    reviewReady();
+  }));
+}
+async function loadSystems(){
+  const inventory = await api('/api/tapis/inventory');
+  SYSTEMS = inventory.exec_systems || [];
+  ALL_SYSTEMS = inventory.systems || [];
+  refreshSystemOptions();
   const saved = store.get('harp-launch', {});
   if (saved.storeSys) $('storeSys').value = saved.storeSys;
   if (saved.store) $('store').value = saved.store;
   if (saved.moveSys) { $('moveSys').value = saved.moveSys; $('movePath').value = saved.movePath || ''; $('moveDet').open = true; }
+  refreshSystemAccess();
 }
 /* ============================================================ 1. configure */
-// Cores per job default to the queue's max cores per node (1 if TAPIS gives no limit).
-const defCores = q => (q && q.max_cores > 0) ? q.max_cores : 1;
+// A HARP profiling job always uses one node and defaults to one core on it.
+const defCores = () => 1;
 // Each ticked queue has one or more hardware configurations: {cores, mem_gb, minutes}.
-// null means "auto": cores = queue max, memory = 4 GB per core, minutes = runs per job x timeout + 10.
+// null means "auto": cores = 1, memory = 4 GB per core, minutes = runs per job x timeout + 10.
 // Every configuration is a separate TAPIS target (always 1 node).
 const cap = (v, mx) => mx > 0 ? Math.min(v, mx) : v;
 const newCfg = () => ({cores: null, mem_gb: null, minutes: null});
@@ -1095,7 +1162,10 @@ function sweepProblem(a, sw){
   }
   if (!(sw.reps >= 1) || !(sw.timeout >= 1)) return 'Repetitions and timeout must be at least 1.';
   if (!sw.queues.length) return 'Tick at least one queue.';
-  for (const k of sw.queues) { const q = qOf(k), seen = new Set();
+  for (const k of sw.queues) { const hit = queueByKey(k), q = hit ? hit.q : {};
+    if (!hit) return `${k.replace('|', ' / ')} is no longer available in TAPIS.`;
+    if (q.void_reason) return q.void_reason;
+    const seen = new Set();
     for (const c of cfgsOf(sw, k)) { const t = cfgText(q, c, sw); if (seen.has(t)) return `${k.replace('|', ' / ')} has two identical configurations.`; seen.add(t); } }
   return '';
 }
@@ -1146,7 +1216,7 @@ function renderSweepForm(){
     el.addEventListener('change', () => { renderSweepForm(); updateCurrent(); }); });
 }
 function limits(q){
-  const parts = [q.max_cores ? `${q.max_cores} cores/node` : '', q.max_memory_mb ? `${fmtMem(q.max_memory_mb)}` : '',
+  const parts = [q.configured_max_nodes === 0 ? '0 nodes max (invalid for jobs)' : '', q.max_cores ? `${q.max_cores} cores/node` : '', q.max_memory_mb ? `${fmtMem(q.max_memory_mb)}` : '',
     q.max_minutes > 0 ? `${fmtMin(q.max_minutes)} limit` : '', q.max_jobs_per_user > 0 ? `${q.max_jobs_per_user} jobs/user` : ''].filter(Boolean);
   return parts.length ? parts.map(x => `<span>${esc(x)}</span>`).join('') : '<span>no limits set</span>';
 }
@@ -1167,28 +1237,33 @@ function cfgBlock(k, q){
       ${cfgsOf(SW, k).length > 1 ? `<button class="rowbtn danger" type="button" data-cfgrm="${esc(k)}" data-i="${i}">Remove</button>` : '<span></span>'}
     </div>`).join('') +
     `<button class="cfgadd" type="button" data-cfgadd="${esc(k)}">+ Add configuration</button>
-     <p class="cfgnote">1 node per job${isGpu(q) ? ' · GPU enabled in the container (--nv)' : ''}. Clear memory or minutes to go back to auto.</p>`;
+     <p class="cfgnote">1 node per job · defaults to 1 core and 4 GB${isGpu(q) ? ' · GPU enabled in the container (--nv)' : ''}. Clear cores, memory or minutes to go back to auto.</p>`;
 }
 const minHint = () => `auto: ${SW.reps} run${SW.reps === 1 ? '' : 's'}/job × ${SW.timeout} min + 10`;
 function renderSystems(){
   if (!SYSTEMS.length) { $('systems').innerHTML = '<div class="empty">No TAPIS execution systems found for your account.</div>'; return; }
   $('systems').innerHTML = SYSTEMS.map(s => `
     <div class="syshead"><b>${esc(s.id)}</b><span class="am">${esc(s.host || '')}</span>
+      ${authBadge(s)}
       ${s.batch_scheduler ? `<span class="rt sing">${esc(s.batch_scheduler)}</span>` : ''}
       ${(s.runtimes || []).map(r => `<span class="rt dock">${esc(r)}</span>`).join(' ')}
       ${s.error ? `<span class="loginerr">queues unavailable: ${esc(s.error)}</span>` : ''}
       <span class="acct"><label for="acct-${esc(s.id)}">Account</label><input id="acct-${esc(s.id)}" class="alloc" data-sys="${esc(s.id)}"
         value="${esc(ALLOC[s.id] || '')}" placeholder="${(((s.job_working_dir || '').match(/\/(P[A-Z]{2}\d{3,5})\b/) || [])[1] && '-A ' + s.job_working_dir.match(/\/(P[A-Z]{2}\d{3,5})\b/)[1]) || (/tacc/i.test(s.host || '') ? '-A TACC-project' : '-A PAS0000')}" autocomplete="off"
         title="The allocation this system's jobs are charged to (a scheduler option). Leave empty if the system needs none."></span></div>
-    ${qlist(s).map(q => { const k = qkey(s, q), on = SW.queues.includes(k), open = on && OPEN.has(k), id = 'q-' + k.replace(/[^A-Za-z0-9_-]/g, '_');
-      return `<div class="qrow cfgrow${on ? ' on' : ''}" data-row="${esc(k)}">
-        <input type="checkbox" class="qpick" id="${esc(id)}" data-k="${esc(k)}" ${on ? 'checked' : ''}>
+    ${s.queue_reference ? `<div class="bnote">${esc(s.queue_reference.label)}: ${s.queue_reference.partitions.map(esc).join(', ')} · <a href="${esc(s.queue_reference.url)}" target="_blank" rel="noopener">OSC reference</a>. Invalid TAPIS mappings remain visible but are voided only in HARP.</div>` : ''}
+    ${qlist(s).length ? qlist(s).map(q => { const k = qkey(s, q), on = SW.queues.includes(k), voided = !!q.void_reason,
+        open = on && !voided && OPEN.has(k), id = 'q-' + k.replace(/[^A-Za-z0-9_-]/g, '_');
+      return `<div class="qrow cfgrow${on ? ' on' : ''}${voided ? ' voided' : ''}" data-row="${esc(k)}">
+        <input type="checkbox" class="qpick" id="${esc(id)}" data-k="${esc(k)}" ${on ? 'checked' : ''} ${voided && !on ? 'disabled' : ''}>
         <label class="qn" for="${esc(id)}">${esc(q.name || 'default queue')}${q.default ? ' <span class="pill done">default</span>' : ''}${isGpu(q) ? ' <span class="pill none">GPU</span>' : ''}
-          ${q.description ? `<span class="am">${esc(q.description)}</span>` : q.hpc_queue && q.hpc_queue !== q.name ? `<span class="am">scheduler: ${esc(q.hpc_queue)}</span>` : ''}</label>
+          ${voided ? ' <span class="pill bad">voided in HARP</span>' : ''}
+          ${q.description ? `<span class="am">${esc(q.description)}</span>` : q.hpc_queue && q.hpc_queue !== q.name ? `<span class="am">scheduler: ${esc(q.hpc_queue)}</span>` : ''}
+          ${voided ? `<span class="am">${esc(q.void_reason)}</span>` : ''}</label>
         <span class="lim">${limits(q)}</span>
-        ${on ? `<button class="qtog" type="button" data-tog="${esc(k)}" aria-expanded="${open}">${togText(k)}<span class="ch">▾</span></button>` : '<span></span>'}
+        ${on && !voided ? `<button class="qtog" type="button" data-tog="${esc(k)}" aria-expanded="${open}">${togText(k)}<span class="ch">▾</span></button>` : '<span></span>'}
         ${open ? `<div class="qcfg">${cfgBlock(k, q)}</div>` : ''}
-      </div>`; }).join('')}`).join('');
+      </div>`; }).join('') : '<div class="empty">No TAPIS logical queues are configured for this batch system.</div>'}`).join('');
   const sys = $('systems');
   sys.querySelectorAll('.alloc').forEach(el => el.addEventListener('input', () => {
     ALLOC[el.dataset.sys] = el.value.trim(); store.set('harp-alloc', ALLOC); }));
@@ -1324,8 +1399,8 @@ async function renderReview(){
         <td rowspan="${span}">${esc(p.sweep.run_type)}</td><td rowspan="${span}" class="uuid">${esc(varies)}</td>` : '';
       const tail = first ? `<td rowspan="${span}" class="chk" data-plan="${p.id}">checking&hellip;</td>
         <td rowspan="${span}"><button class="rowbtn danger" data-rm="${p.id}" type="button">Remove</button></td>` : '';
-      const acct = ALLOC[k.split('|')[0]];
-      return `<tr>${lead}<td>${esc(k.replace('|', ' / '))}${isGpu(q) ? ' <span class="pill none">GPU</span>' : ''}
+      const acct = ALLOC[k.split('|')[0]], sys = hit ? hit.s : {id: k.split('|')[0], access: {accessible: null}};
+      return `<tr>${lead}<td>${esc(k.replace('|', ' / '))}${isGpu(q) ? ' <span class="pill none">GPU</span>' : ''} ${authBadge(sys)}
         <span class="am" style="display:block">${acct ? esc(acct) : 'no account set (Configure)'}</span></td>
         <td class="num">${n}</td><td class="num">${n * p.sweep.reps}</td><td class="num" data-t="${p.id}:${i}:c">${cfgCores(q, c)}</td><td class="num" data-t="${p.id}:${i}:m">${fmtMem(cfgMemMb(q, c))}</td>
         <td class="num" data-t="${p.id}:${i}:t">${fmtMin(cfgMin(q, c, p.sweep))}</td>${tail}</tr>`; }).join('')
@@ -1351,7 +1426,15 @@ async function renderReview(){
 }
 function reviewReady(){
   const path = $('store').value.trim();
-  const prob = !PLAN.length ? 'The plan is empty.' : !path ? 'Choose a results folder.'
+  const selectedIds = [...new Set(PLAN.flatMap(p => p.sweep.queues.map(k => k.split('|')[0])))];
+  const unauthExec = selectedIds.find(id => accessState(SYSTEMS.find(s => s.id === id) || {}) === false);
+  const storageAuth = id => accessState(ALL_SYSTEMS.find(s => s.id === id) || {}) === false;
+  const unauthStorage = storageAuth($('storeSys').value) ? $('storeSys').value
+    : $('moveSys').value && storageAuth($('moveSys').value) ? $('moveSys').value : '';
+  const prob = !PLAN.length ? 'The plan is empty.'
+    : unauthExec ? `Selected system ${unauthExec} is not accessible through TAPIS. Verify its credentials and remote host access before submitting.`
+    : unauthStorage ? `Selected results system ${unauthStorage} is not accessible through TAPIS. Verify its credentials and remote host access.`
+    : !path ? 'Choose a results folder.'
     : !path.startsWith('/') ? 'The results folder must be an absolute path, starting with /.'
     : $('moveSys').value && !$('movePath').value.trim().startsWith('/') ? 'Give the copy location an absolute folder, or choose "Don\'t copy".'
     : !CHECK ? 'Checking the plan…' : CHECK.some(r => !r.ok) ? 'Fix the sweeps marked “fix”.'
@@ -1385,10 +1468,23 @@ $('submitBtn').addEventListener('click', async () => {
 /* ================================================================ 3. jobs */
 const SWEEP_ST = {DONE:['done','done'], DONE_WITH_ERRORS:['warn','done with errors'], RUNNING:['run','running'],
   FINALIZING:['run','merging data'], WAITING_FOR_LOGIN:['warn','paused'], FAILED:['bad','failed'], CANCELLED:['bad','cancelled']};
-const JOB_ST = {NOT_SUBMITTED:['wait','waiting'], PENDING:['run','submitting'], PROCESSING_INPUTS:['run','submitting'],
+const JOB_ST = {NOT_SUBMITTED:['wait','waiting in HARP'], ACCEPTED:['run','accepted'], PENDING:['run','accepted'], PROCESSING_INPUTS:['run','processing inputs'],
   STAGING_INPUTS:['run','staging'], STAGING_JOB:['run','staging'], SUBMITTING_JOB:['run','submitting'], QUEUED:['warn','queued'],
   RUNNING:['run','running'], ARCHIVING:['run','copying output'], BLOCKED:['warn','blocked'], PAUSED:['warn','paused'],
-  FINISHED:['done','finished'], FAILED:['bad','failed'], SUBMIT_FAILED:['bad','not submitted'], CANCELLED:['bad','cancelled']};
+  FINISHED:['done','finished'], FAILED:['bad','failed'], SUBMIT_FAILED:['bad','submission rejected'], CANCELLED:['bad','cancelled']};
+const JOB_STATUS_HELP = {
+  NOT_SUBMITTED: 'HARP has not called the TAPIS Jobs service for this job yet.',
+  ACCEPTED: 'TAPIS accepted the request and is preparing it for processing.',
+  PENDING: 'TAPIS accepted the request and is preparing it for processing.',
+  PROCESSING_INPUTS: 'TAPIS is resolving the job inputs before remote staging.',
+  STAGING_INPUTS: 'TAPIS is copying declared inputs to the execution system.',
+  STAGING_JOB: 'TAPIS is creating launch files on the execution system.',
+  SUBMITTING_JOB: 'TAPIS is sending the batch request to the remote scheduler.',
+  QUEUED: 'The remote scheduler accepted the request; it is waiting for resources.',
+  BLOCKED: 'TAPIS or the scheduler reports a dependency or resource block.',
+  PAUSED: 'Processing is paused; inspect the TAPIS condition or ask the system administrator.',
+  ARCHIVING: 'Execution ended and TAPIS is copying output to the archive location.'
+};
 const pill = (map, s) => { const [c, t] = map[s] || ['run', String(s).toLowerCase()]; return `<span class="st ${c}">${esc(t)}</span>`; };
 const ACTIVE = ['RUNNING', 'WAITING_FOR_LOGIN', 'FINALIZING'];
 const isDone = s => s === 'FINISHED', isFail = s => ['FAILED', 'SUBMIT_FAILED', 'CANCELLED'].includes(s);
@@ -1413,6 +1509,7 @@ function renderJobs(){
   $('jActive').textContent = g.active || 0; $('jWait').textContent = g.waiting || 0;
   $('jDone').textContent = g.finished || 0; $('jFail').textContent = g.failed || 0;
   setBadge((g.active || 0) + (g.waiting || 0));
+  renderFailureDetails();
 
   // sweeps
   const moveNote = c => { const m = (c.result || {}).move; if (!m) return '';
@@ -1453,19 +1550,40 @@ function renderJobs(){
   const rows = JOBS.filter(j => (!FSET.kind || (j.kind || 'profiling') === FSET.kind) && (!FSET.app || j.app_id === FSET.app) && (!FSET.system || j.system_id === FSET.system)
       && (!FSET.sweep || j.sweep_id === FSET.sweep) && (!FSET.status || group(j.status) === FSET.status))
     .sort((a, b) => { const x = val(a, jSort), y = val(b, jSort); return (x < y ? -1 : x > y ? 1 : 0) * jDir; });
-  const COLS = [['kind', 'Job type'], ['app', 'App'], ['sweep', 'Sweep / build'], ['name', 'TAPIS job'], ['where', 'System / queue'], ['run_type', 'Run type'],
-                ['status', 'Status'], ['runs', 'Runs done'], ['submitted_at', 'Submitted'], ['duration', 'Duration'], ['uuid', 'TAPIS UUID']];
-  $('jobsTable').innerHTML = `<tr>${COLS.map(([k, l]) => `<th${k === 'duration' || k === 'runs' ? ' class="num"' : ''}><button class="sortb" data-k="${k}">${l}${jSort === k ? (jDir > 0 ? ' ▲' : ' ▼') : ''}</button></th>`).join('')}</tr>` +
-    (rows.length ? rows.slice(0, 500).map(j => `<tr><td>${j.kind === 'build' ? '<span class="pill done">build</span>' : '<span class="pill none">profiling</span>'}</td><td>${esc(appName(j.app_id))}</td><td>${esc(j.sweep)}</td><td class="uuid">${esc(j.name)}</td>
-      <td>${esc(j.system_id)}${j.queue ? ` <span class="am">/ ${esc(j.queue)}</span>` : ''}${j.cores_per_node ? ` <span class="am">· ${j.cores_per_node} cores${j.memory_mb ? ' · ' + esc(fmtMem(j.memory_mb)) : ''}</span>` : ''}</td><td>${esc(j.run_type)}</td>
-      <td>${pill(JOB_ST, j.status)}${j.error ? `<div class="err">${esc(j.error)}</div>` : ''}</td>
+  const COLS = [['kind', 'Type', 'jc-type'], ['app', 'Application / sweep', 'jc-context'], ['name', 'TAPIS job name', 'jc-name'], ['where', 'Execution target', 'jc-target'], ['run_type', 'Run set', 'jc-run'],
+                ['status', 'State / error', 'jc-state'], ['runs', 'Runs', 'jc-runs'], ['submitted_at', 'Submitted', 'jc-time'], ['duration', 'Elapsed', 'jc-duration'], ['uuid', 'TAPIS job ID', 'jc-id']];
+  const clip = (value, cls = '') => { const text = String(value ?? '–');
+    return `<span class="jclip${cls ? ' ' + cls : ''}" title="${esc(text)}">${esc(text)}</span>`; };
+  $('jobsTable').innerHTML = `<colgroup>${COLS.map(([, , c]) => `<col class="${c}">`).join('')}</colgroup><tr>${COLS.map(([k, l]) => `<th${k === 'duration' || k === 'runs' ? ' class="num"' : ''}><button class="sortb" data-k="${k}">${l}${jSort === k ? (jDir > 0 ? ' ▲' : ' ▼') : ''}</button></th>`).join('')}</tr>` +
+    (rows.length ? rows.slice(0, 500).map(j => { const target = `${j.system_id || '–'}${j.queue ? ' / ' + j.queue : ''}${j.cores_per_node ? ` · ${j.cores_per_node} cores${j.memory_mb ? ' · ' + fmtMem(j.memory_mb) : ''}` : ''}`;
+      const stateText = j.failure ? `${j.failure.label}: ${j.failure.explanation}` : j.error || j.status_explanation || JOB_STATUS_HELP[j.status] || '';
+      return `<tr><td>${j.kind === 'build' ? '<span class="pill done">build</span>' : '<span class="pill none">profile</span>'}</td><td><b>${clip(appName(j.app_id))}</b>${clip(j.sweep, 'subtle')}</td><td class="uuid">${clip(j.name)}</td>
+      <td>${clip(target)}</td><td>${clip(j.run_type)}</td>
+      <td>${pill(JOB_ST, j.status)}${stateText ? `<div class="${j.failure || j.error ? 'err' : 'statehelp'}" title="${esc(stateText)}">${esc(stateText)}</div>` : ''}</td>
       <td class="num">${runsCell(j)}</td>
-      <td class="updated">${esc(ago(j.submitted_at))}</td><td class="num">${fmtDur(dur(j))}</td><td class="uuid">${esc(j.uuid || '–')}</td></tr>`).join('')
-    : `<tr><td colspan="11" class="updated">${JOBS.length ? 'No jobs match these filters.' : 'No TAPIS jobs yet.'}</td></tr>`);
+      <td class="updated">${clip(ago(j.submitted_at))}</td><td class="num">${clip(fmtDur(dur(j)))}</td><td class="uuid">${clip(j.uuid)}</td></tr>`; }).join('')
+    : `<tr><td colspan="10" class="updated">${JOBS.length ? 'No jobs match these filters.' : 'No TAPIS jobs yet.'}</td></tr>`);
   $('jobsTable').querySelectorAll('.sortb').forEach(b => b.addEventListener('click', () => {
     if (jSort === b.dataset.k) jDir = -jDir; else { jSort = b.dataset.k; jDir = ['submitted_at', 'duration'].includes(jSort) ? -1 : 1; }
     renderJobs(); }));
   $('jCount').textContent = `${Math.min(rows.length, 500)} of ${JOBS.length} jobs shown` + (FSET.sweep ? ' · filtered to one sweep' : '');
+}
+function renderFailureDetails(){
+  const failed = JOBS.filter(j => isFail(j.status));
+  $('failureCard').hidden = !failed.length;
+  if (!failed.length) return;
+  const groups = {};
+  for (const j of failed) { const f = j.failure || {code: 'unknown', label: 'Other TAPIS error', explanation: j.error || 'No detailed TAPIS message is available.'};
+    (groups[f.code] ||= {label: f.label, explanation: f.explanation, jobs: []}).jobs.push(j); }
+  $('failureCaption').textContent = `— ${failed.length} failed job${failed.length === 1 ? '' : 's'} in ${Object.keys(groups).length} categor${Object.keys(groups).length === 1 ? 'y' : 'ies'}`;
+  $('failureSummary').innerHTML = Object.values(groups).sort((a, b) => b.jobs.length - a.jobs.length).map(g =>
+    `<div class="failbox"><b>${g.jobs.length} · ${esc(g.label)}</b><span>${esc(g.explanation)}</span></div>`).join('');
+  $('failureTable').innerHTML = '<tr><th>Category</th><th>Job</th><th>Execution target</th><th>Explanation</th><th>TAPIS detail</th></tr>' +
+    failed.slice().sort((a, b) => String(b.submitted_at || '').localeCompare(String(a.submitted_at || ''))).slice(0, 100).map(j => { const f = j.failure || {};
+      const raw = f.raw || j.error || 'No raw error returned.';
+      return `<tr><td><span class="st bad">${esc(f.label || 'Other TAPIS error')}</span></td><td class="uuid">${esc(j.name)}</td>
+        <td>${esc(j.system_id)}${j.queue ? ' / ' + esc(j.queue) : ''}</td><td>${esc(f.explanation || 'No classified explanation available.')}</td>
+        <td class="failraw"><details><summary>${esc(f.condition || 'Raw message')}</summary>${esc(raw)}</details></td></tr>`; }).join('');
 }
 // Runs done in a job: the runner's progress file, read by the server through TAPIS while the job runs.
 function runsDone(j){ return j.progress && j.progress.runs_done != null ? j.progress.runs_done : 0; }
@@ -1566,8 +1684,8 @@ async function renderBuild(){
     const saved = store.get('harp-build-dest', null) || store.get('harp-launch', {});
     if (saved.storeSys) $('bSys').value = saved.storeSys;
     if (!$('bPath').value && saved.store) $('bPath').value = saved.store;
-    const ba = BOPTS.build_app, queues = SYSTEMS.flatMap(s => qlist(s).map(q => ({s, q})));
-    $('bRun').innerHTML = queues.map(({s, q}) => `<option value="tapis|${esc(s.id)}|${esc(q.name || '')}" ${ba ? '' : 'disabled'}>${esc(s.id)} / ${esc(q.name || 'default')} · TAPIS job</option>`).join('')
+    const ba = BOPTS.build_app, queues = SYSTEMS.flatMap(s => activeQlist(s).map(q => ({s, q})));
+    $('bRun').innerHTML = queues.map(({s, q}) => `<option value="tapis|${esc(s.id)}|${esc(q.name || '')}" ${ba ? '' : 'disabled'}>${esc(s.id)} / ${esc(q.name || 'default')} · ${esc(authText(s))} · TAPIS job</option>`).join('')
       + '<option value="local">This computer (the HARP server)</option>';
     $('bRun').value = ba && saved.run && [...$('bRun').options].some(o => o.value === saved.run && !o.disabled) ? saved.run
       : ba && queues.length ? $('bRun').options[0].value : 'local';
@@ -1610,8 +1728,12 @@ function renderStd(r, ids){
 function buildReady(){
   const path = $('bPath').value.trim(), busy = BUILDS.some(b => ['QUEUED', 'RUNNING'].includes(b.status) && (b.where || {}).mode !== 'tapis');
   const local = $('bRun').value === 'local';
+  const runSystem = local ? null : SYSTEMS.find(s => s.id === $('bRun').value.split('|')[1]);
+  const saveSystem = ALL_SYSTEMS.find(s => s.id === $('bSys').value);
   const prob = !bCheck ? 'Waiting for the sweeps.' : !bCheck.ready ? 'Not enough data yet (step 1).'
     : !BMOD.size || !BSETS.size ? 'Pick at least one model and one training set.'
+    : runSystem && accessState(runSystem) === false ? `Build system ${runSystem.id} is not accessible through TAPIS.`
+    : saveSystem && accessState(saveSystem) === false ? `Model storage system ${saveSystem.id} is not accessible through TAPIS.`
     : !$('bSys').value ? 'Pick where to save the models.' : !path.startsWith('/') ? 'Give an absolute folder, starting with /.'
     : busy && local ? 'A build is already running on this computer.' : '';
   $('buildBtn').disabled = !!prob;
@@ -1741,7 +1863,7 @@ const BUILD_PANELS = ['bdata', 'bmodels', 'btrained'];
 function show(p){
   if (!SUPER[p]) p = 'configure';
   panel = p; const sup = SUPER[p]; lastSub[sup] = p;
-  document.querySelectorAll('.st').forEach(b => b.setAttribute('aria-selected', b.dataset.s === sup));
+  document.querySelectorAll('.stabs .st[data-s]').forEach(b => b.setAttribute('aria-selected', b.dataset.s === sup));
   document.querySelectorAll('.tabs4').forEach(t => t.hidden = t.dataset.s !== sup);
   document.querySelectorAll('.t4').forEach(b => b.setAttribute('aria-selected', b.dataset.p === p));
   document.querySelectorAll('.panel4').forEach(el => el.hidden = el.id !== 'p-' + p);
@@ -1754,7 +1876,7 @@ function show(p){
   if (p === 'emodel') renderEModels();
   if (p === 'eresults') renderEResults();
 }
-document.querySelectorAll('.st').forEach(b => b.addEventListener('click', () => show(lastSub[b.dataset.s])));
+document.querySelectorAll('.stabs .st[data-s]').forEach(b => b.addEventListener('click', () => show(lastSub[b.dataset.s])));
 document.querySelectorAll('.t4').forEach(b => b.addEventListener('click', () => show(b.dataset.p)));
 document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => show(b.dataset.go)));
 for (const bar of document.querySelectorAll('.tabs4, .stabs')) bar.addEventListener('keydown', ev => {
@@ -1779,12 +1901,12 @@ function renderEst(){
       <div><span class="aname">${esc(p.name)}</span><span class="aflag">${esc(p.arg)} &middot; ${esc(p.kind)}</span></div>
       <div><input class="valin" data-p="${esc(p.name)}" value="${esc(EVALS[p.name] ?? p.def)}" placeholder="${esc(p.def)}" aria-label="${esc(p.name)} value"></div></div>`).join('');
     $('eVals').querySelectorAll('.valin').forEach(el => el.addEventListener('input', () => { EVALS[el.dataset.p] = el.value; eReady(); }));
-    $('eSystems').innerHTML = SYSTEMS.map(s => `<div class="syshead"><b>${esc(s.id)}</b><span class="am">${esc(s.host || '')}</span></div>` +
-      qlist(s).map(q => { const k = qkey(s, q), on = k in EQ, id = 'eq-' + k.replace(/[^A-Za-z0-9_-]/g, '_');
-        return `<div class="erow${on ? ' on' : ''}"><input type="checkbox" id="${esc(id)}" data-k="${esc(k)}" ${on ? 'checked' : ''}>
-          <label class="qn" for="${esc(id)}">${esc(q.name || 'default queue')}${isGpu(q) ? ' <span class="pill none">GPU</span>' : ''}</label>
+    $('eSystems').innerHTML = SYSTEMS.map(s => `<div class="syshead"><b>${esc(s.id)}</b><span class="am">${esc(s.host || '')}</span>${authBadge(s)}</div>` +
+      qlist(s).map(q => { const k = qkey(s, q), on = k in EQ, voided = !!q.void_reason, id = 'eq-' + k.replace(/[^A-Za-z0-9_-]/g, '_');
+        return `<div class="erow${on ? ' on' : ''}${voided ? ' voided' : ''}"><input type="checkbox" id="${esc(id)}" data-k="${esc(k)}" ${on ? 'checked' : ''} ${voided && !on ? 'disabled' : ''}>
+          <label class="qn" for="${esc(id)}">${esc(q.name || 'default queue')}${isGpu(q) ? ' <span class="pill none">GPU</span>' : ''}${voided ? ' <span class="pill bad">voided</span>' : ''}${voided ? `<span class="am" style="display:block">${esc(q.void_reason)}</span>` : ''}</label>
           <span class="lim">${limits(q)}</span>
-          <input type="number" min="1" ${q.max_cores ? `max="${q.max_cores}"` : ''} data-c="${esc(k)}" value="${EQ[k] || defCores(q)}" aria-label="Cores on ${esc(s.id)} ${esc(q.name || '')}" title="Cores the run would get"></div>`; }).join('')).join('');
+          <input type="number" min="1" ${q.max_cores ? `max="${q.max_cores}"` : ''} data-c="${esc(k)}" value="${EQ[k] || defCores(q)}" ${voided ? 'disabled' : ''} aria-label="Cores on ${esc(s.id)} ${esc(q.name || '')}" title="Cores the run would get"></div>`; }).join('')).join('');
     $('eSystems').querySelectorAll('input[type=checkbox]').forEach(el => el.addEventListener('change', () => {
       const k = el.dataset.k; if (el.checked) EQ[k] = +$('eSystems').querySelector(`[data-c="${CSS.escape(k)}"]`).value || 1; else delete EQ[k];
       el.closest('.erow').classList.toggle('on', el.checked); eReady(); }));
@@ -1801,6 +1923,7 @@ function eProblem(){
     if (!v) return `Give "${p.name}" a value.`;
     if (v.includes(',')) return `"${p.name}": one value only; an estimate is one run.`;
     if ((p.kind === 'int' || p.kind === 'float') && isNaN(+v)) return `"${p.name}" needs a number.`; }
+  for (const k of Object.keys(EQ)) { const q = qOf(k); if (q.void_reason) return q.void_reason; }
   return Object.keys(EQ).length ? '' : 'Tick at least one queue.';
 }
 function eReady(){ const prob = eProblem(); $('eAdd').disabled = !!prob; $('eMsg').className = 'launchmsg'; $('eMsg').textContent = prob; }
@@ -1866,6 +1989,12 @@ function renderEResults(){
 
 /* ================================================================== help */
 const HELP = {
+  resources: `<p>Every HARP profiling job asks TAPIS for <b>one node</b>. <b>Cores / job</b> becomes <code>coresPerNode</code>, so with one node it is also the total CPU-core request. New configurations default to <b>1 core</b>.</p>
+    <p><b>Memory (GB)</b> becomes <code>memoryMB</code> by multiplying by 1024. Auto memory is 4 GB per requested core, so the new default is 4096 MB.</p>
+    <p>The selected logical queue supplies the allowed minima and maxima. HARP sends <code>nodeCount=1</code>, <code>coresPerNode</code>, <code>memoryMB</code>, <code>maxMinutes</code>, and the queue name on each TAPIS job; these values replace the app's job defaults.</p>`,
+  jobstates: `<p><b>Waiting in HARP</b> means no TAPIS job exists yet, usually because HARP is respecting its per-target concurrency limit or needs you to log in again.</p>
+    <p><b>Accepted / processing inputs / staging / submitting</b> are TAPIS intake steps before the remote scheduler owns the job. <b>Queued</b> means the scheduler accepted it and is waiting for resources.</p>
+    <p><b>Submission rejected</b> means the TAPIS Jobs service refused the request, so there is no usable TAPIS job ID. HARP shows the classified cause and preserves the raw message under Failure details.</p>`,
   runtypes: `<p><b>SD · scaled-down</b>: small, quick versions of the problem (small inputs, few epochs). The models learn from these.</p>
     <p><b>FS · full-scale</b>: the real sizes you care about. Some are mixed into training (SD+25FS, SD+50FS, SD+75FS) and a quarter checks the models while they train.</p>
     <p><b>test_data · held out</b>: runs kept aside to score the finished models; they are never trained on.</p>
