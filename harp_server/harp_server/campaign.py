@@ -35,6 +35,25 @@ DONE_WITH_ERRORS = "DONE_WITH_ERRORS"
 FAILED = "FAILED"
 CANCELLED = "CANCELLED"
 ACTIVE_CAMPAIGN_STATUSES = {RUNNING, WAITING_FOR_LOGIN, FINALIZING}
+STATUS_CHECK_ERROR_PREFIX = "status check failed:"
+
+
+def is_status_check_error(value):
+    return str(value or "").lower().startswith(STATUS_CHECK_ERROR_PREFIX)
+
+
+def scheduler_option_args(target):
+    """TAPIS JobArgSpecs for the account plus HARP's GPU allocation."""
+    options = []
+    configured = (target.get("scheduler_options") or "").strip()
+    if configured:
+        options.append({"arg": configured})
+    gpu_count = target.get("gpus_per_node")
+    configured_lower = configured.lower()
+    has_gpu_request = any(flag in configured_lower for flag in ("--gpus", "--gres=gpu", "--gres gpu"))
+    if gpu_count and not has_gpu_request:
+        options.append({"arg": f"--gpus-per-node={int(gpu_count)}"})
+    return options
 
 
 def _now():
@@ -56,8 +75,9 @@ def build_job_request(campaign, job):
     target = next(t for t in spec["targets"] if t["key"] == job["target"])
     parameter_set = {"appArgs": [{"arg": encode_job_spec(spec, job)}],
                      "archiveFilter": {"includeLaunchFiles": False}}
-    if target.get("scheduler_options"):
-        parameter_set["schedulerOptions"] = [{"arg": target["scheduler_options"]}]
+    scheduler_options = scheduler_option_args(target)
+    if scheduler_options:
+        parameter_set["schedulerOptions"] = scheduler_options
     if target.get("container_args"):
         # e.g. "--nv" so Singularity exposes the node's GPUs to the container
         parameter_set["containerArgs"] = [{"arg": target["container_args"]}]
@@ -285,6 +305,8 @@ class CampaignManager:
                 except TapisError as e:
                     job["error"] = f"status check failed: {e}"
                     continue
+                if is_status_check_error(job.get("error")):
+                    job["error"] = None
                 if status != job["status"]:
                     job["status"] = status
                     if status in TERMINAL_STATUSES:

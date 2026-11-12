@@ -6,6 +6,7 @@ never touches cluster file systems directly.
 
 import threading
 import time
+import re
 from datetime import datetime, timezone
 
 TERMINAL_STATUSES = {"FINISHED", "FAILED", "CANCELLED"}
@@ -24,6 +25,33 @@ def _plain(obj):
 
 class TapisError(RuntimeError):
     pass
+
+
+def login_error_message(error):
+    """Turn Tapipy's nested authentication exceptions into one useful sentence."""
+    raw = " ".join(str(error or "").split())
+    low = raw.lower()
+    if low.startswith("invalid or expired tapis access token"):
+        return "Invalid or expired TAPIS access token. Get a new token and try again."
+    if low.startswith("could not reach the tapis tenants service"):
+        return "Could not reach the TAPIS Tenants service. Check the tenant URL and try again."
+    if low.startswith("could not connect to tapis"):
+        return "Could not connect to TAPIS. Check the tenant URL and try again."
+    token_markers = (
+        "invalid tapis token", "invalid access token", "invalid token", "bad token",
+        "token has expired", "token is expired", "expired token", "jwt expired",
+        "token validation failed", "token could not be validated", "unauthorized",
+        "not enough segments", "invalid header string", "invalid crypto padding",
+    )
+    if any(marker in low for marker in token_markers):
+        return "Invalid or expired TAPIS access token. Get a new token and try again."
+    if "unable to retrieve sites and tenants" in low or "tenants api" in low:
+        return "Could not reach the TAPIS Tenants service. Check the tenant URL and try again."
+    if any(marker in low for marker in ("connection aborted", "connection refused", "timed out", "timeout")):
+        return "Could not connect to TAPIS. Check the tenant URL and try again."
+    cleaned = re.sub(r"^tapis login failed:\s*", "", raw, flags=re.IGNORECASE)
+    cleaned = re.sub(r"^(?:message:\s*)+", "", cleaned, flags=re.IGNORECASE)
+    return "TAPIS login failed" + (f": {cleaned}" if cleaned else ".")
 
 
 def _get(obj, name, default=None):
@@ -77,6 +105,7 @@ class TapisGateway:
         self._lock = threading.Lock()
         self._job_details_cache = (0.0, {})
         self._system_access_cache = {}
+        self._apps_cache = (0.0, None)
 
     @property
     def expires_at(self):
@@ -120,7 +149,7 @@ class TapisGateway:
                 client.get_tokens()
         except Exception as e:
             msg = str(e).replace(password, "***") if password else str(e)
-            raise TapisError(f"TAPIS login failed: {msg}") from None
+            raise TapisError(login_error_message(msg)) from None
         finally:
             password = None
         client.password = None
@@ -189,6 +218,9 @@ class TapisGateway:
         return dict(result)
 
     def list_apps(self):
+        cached_at, cached = self._apps_cache
+        if cached is not None and time.monotonic() - cached_at < 30:
+            return [dict(app) for app in cached]
         apps = self._call(self.client.apps.getApps, listType="ALL", limit=-1, select="allAttributes")
         out = []
         for a in apps:
@@ -205,7 +237,8 @@ class TapisGateway:
                 "app_args": [{"name": _get(x, "name"), "arg": _get(x, "arg")}
                              for x in (_get(params, "appArgs") or [])],
             })
-        return out
+        self._apps_cache = (time.monotonic(), out)
+        return [dict(app) for app in out]
 
     # ------------------------------------------------------------------- files
     def mkdir(self, system_id, path):

@@ -3,7 +3,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from harp_server.app import _decorate_queues, create_app
-from harp_server.tapis_gateway import TapisError
+from harp_server.tapis_gateway import TapisError, login_error_message
 from fake_tapis import FakeGateway
 from specs import euler_spec
 
@@ -50,6 +50,19 @@ def test_requires_login(ctx):
     assert r.status_code == 401
     assert client.post("/api/login", json={"base_url": "https://fake.tapis.io", "access_token": "token-a"}).status_code == 200
     assert client.post("/api/login", json={"base_url": "http://insecure", "access_token": "token-a"}).status_code == 400
+
+
+def test_nested_tapipy_login_errors_are_concise():
+    nested = ("TAPIS login failed: message: Unable to retrieve sites and tenants from the Tenants API. "
+              "e: message: Invalid Tapis token.")
+    assert login_error_message(nested) == (
+        "Invalid or expired TAPIS access token. Get a new token and try again.")
+    assert login_error_message("Not enough segments") == (
+        "Invalid or expired TAPIS access token. Get a new token and try again.")
+    assert login_error_message("Invalid or expired TAPIS access token. Get a new token and try again.") == (
+        "Invalid or expired TAPIS access token. Get a new token and try again.")
+    assert login_error_message("Unable to retrieve sites and tenants from the Tenants API") == (
+        "Could not reach the TAPIS Tenants service. Check the tenant URL and try again.")
 
 
 def test_login_with_access_token_sets_a_secure_session_cookie_only(ctx):
@@ -164,6 +177,34 @@ def test_profiling_page_is_served_with_its_own_csp(ctx):
     assert "fonts.googleapis.com" in csp and "'unsafe-inline'" in csp
     assert 'name="access_token"' in r.text
     assert 'name="username"' not in r.text and 'name="password"' not in r.text
+    assert 'id="sysShowUnavailable"' in r.text and 'id="reviewShowUnavailable"' in r.text
+    assert 'id="eShowUnavailable"' in r.text
+    assert "queue-status" in r.text and "label: 'CHECKING'" in r.text
+    assert "function renderBuildDestinations()" in r.text
+    assert "accessTimer = setTimeout(refreshSystemAccess, 750)" in r.text
+    assert "invalid_tapis_configuration" in r.text and "partition_unavailable" in r.text
+    assert "Execution systems and logical queues" in r.text
+    assert "Scheduler options" in r.text and 'class="queue-tag default"' in r.text
+    assert "Nodes per job" in r.text and "Cores Requested" in r.text and "Memory Requested" in r.text
+    assert "Time Limit Requested" in r.text
+    assert "nodeCount=1" in r.text and "coresPerNode" in r.text and "memoryMB" in r.text and "maxMinutes" in r.text
+    assert "function syncQueuesFromUi()" in r.text and "el.checked && !el.disabled" in r.text
+    assert "function syncSweepFromUi()" in r.text and "SW.params[p.name].raw = input.value" in r.text
+    assert "queueSweepValidationRefresh" in r.text
+    assert "addEventListener('change', queueSweepValidationRefresh)" in r.text
+    assert "const cfgFingerprint" in r.text and "cfgFingerprint(q, c, sw)" in r.text
+    assert "cfgText(q, c, sw)" not in r.text
+    assert "const systems = SYSTEMS.filter(s => showAll || (!systemUnavailable(s) && activeQlist(s).length));" in r.text
+    assert "const startupCampaigns = loadCampaigns(0)" in r.text
+    assert "const jobsReady = loadJobs(startupCampaigns)" in r.text
+    assert "const appsReady = loadApps(startupCampaigns)" in r.text
+    assert "const systemsReady = loadSystems()" in r.text
+    assert "if (jobsRequest) return jobsRequest" in r.text
+    assert 'id="eRun"' in r.text and "api('/api/estimates'" in r.text
+    assert 'id="bRunSystem"' in r.text and 'id="bRunQueue"' in r.text
+    assert 'id="bShowUnavailable"' in r.text
+    assert "function renderBuildPartitions(preferred = null)" in r.text
+    assert 'id="bRun"' not in r.text
     assert client.get("/").text == r.text   # the page is the whole UI
     assert "unsafe-inline" not in client.get("/api/me").headers["content-security-policy"].split("script-src")[1].split(";")[0]
 
@@ -273,22 +314,52 @@ def test_inventory_returns_execution_and_storage_systems_with_access_state(ctx):
     ("cardinal-tapis", "Cardinal", "cache", "parallel"),
 ])
 def test_harp_only_queue_overlay_uses_each_osc_partition_catalog(system_id, cluster, valid, invalid):
+    class LiveCatalog:
+        def snapshot(self, key):
+            return {"checked_at": "2026-11-04T12:00:00+00:00",
+                    "partitions": {valid: {"available": True}, "down": {"available": False}}}
+
+        def error(self, key):
+            return None
+
     system = {"id": system_id, "queues": [
         {"name": "profile", "hpc_queue": invalid, "configured_max_nodes": 4},
         {"name": "documented", "hpc_queue": valid, "configured_max_nodes": 16},
         {"name": "disabled", "hpc_queue": valid, "configured_max_nodes": 0},
+        {"name": "offline", "hpc_queue": "down", "configured_max_nodes": 4},
     ]}
-    _decorate_queues(system)
-    invalid_queue, valid_queue, disabled_queue = system["queues"]
+    _decorate_queues(system, LiveCatalog())
+    invalid_queue, valid_queue, disabled_queue, offline_queue = system["queues"]
     assert invalid_queue["void_reason"] == (
-        f"TAPIS queue 'profile' maps to HPC queue {invalid!r}, which is not a documented {cluster} partition. "
-        "This is a TAPIS configuration issue.")
+        f"This queue maps to HPC queue {invalid!r}, which is not in the live {cluster} Slurm partition list.")
+    assert invalid_queue["availability_code"] == "invalid_tapis_configuration"
     assert valid_queue["void_reason"] is None
-    assert disabled_queue["void_reason"] == (
-        "TAPIS queue 'disabled' has maxNodeCount=0. This is a TAPIS configuration issue.")
-    assert system["queue_reference"]["label"] == f"Documented {cluster} partitions"
+    assert valid_queue["availability_code"] == "available"
+    assert disabled_queue["void_reason"] == "This queue has been configured incorrectly on TAPIS."
+    assert offline_queue["availability_code"] == "partition_unavailable" and offline_queue["void_reason"]
+    assert system["queue_reference"]["label"] == f"Live {cluster} partitions"
     assert valid in system["queue_reference"]["partitions"]
     assert invalid not in system["queue_reference"]["partitions"]
+
+
+def test_osc_queue_is_unverified_not_voided_without_live_probe():
+    system = {"id": "ascend-tapis", "queues": [
+        {"name": "legacy", "hpc_queue": "not-in-the-docs", "configured_max_nodes": 4},
+    ]}
+    _decorate_queues(system)
+    queue = system["queues"][0]
+    assert queue["availability_code"] == "unverified" and queue["void_reason"] is None
+    assert system["queue_reference"]["source"] == "documentation"
+
+
+def test_queue_without_live_probe_is_unverified_by_default():
+    system = {"id": "other-tapis", "queues": [
+        {"name": "normal", "hpc_queue": "normal", "configured_max_nodes": 4},
+    ]}
+    _decorate_queues(system)
+    queue = system["queues"][0]
+    assert queue["availability_code"] == "unverified"
+    assert queue["availability_source"] == "tapis" and queue["void_reason"] is None
 
 
 def test_system_access_endpoint_performs_file_listing_probe(ctx):
@@ -323,6 +394,19 @@ def test_failed_job_includes_classified_tapis_error(ctx):
     job = next(j for j in client.get("/api/jobs").json() if j["uuid"] == uuid)
     assert job["failure"]["code"] == "queue_unavailable"
     assert job["failure"]["raw"].startswith("Batch job submission failed")
+
+
+def test_finished_job_hides_persisted_status_check_error(ctx):
+    client, manager, gateways = ctx
+    _login(client)
+    _create(ctx, euler_spec(name="recovered"))
+    manager.tick()
+    gw = gateways["alice"]
+    local_job = next(j for c in manager.campaigns.values() for j in c["jobs"] if j.get("uuid"))
+    local_job.update(status="FINISHED", error="status check failed: connection aborted")
+    gw.jobs[local_job["uuid"]]["status"] = "FINISHED"
+    job = next(j for j in client.get("/api/jobs").json() if j["uuid"] == local_job["uuid"])
+    assert job["status"] == "FINISHED" and job["error"] is None and job["failure"] is None
 
 
 def test_jobs_show_runs_done_while_running_and_after(ctx):

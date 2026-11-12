@@ -12,11 +12,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /opt/harp
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates libgomp1 \
+    && apt-get install -y --no-install-recommends ca-certificates libgomp1 openssh-client \
     && rm -rf /var/lib/apt/lists/*
 
 COPY harp_server/requirements.txt /tmp/requirements.txt
-RUN pip install -r /tmp/requirements.txt
+COPY harp_server/requirements-build.txt /tmp/requirements-build.txt
+RUN pip install -r /tmp/requirements.txt -r /tmp/requirements-build.txt
 
 # The server serves the existing page and can optionally run the build pipeline
 # locally. Production deployments should normally use the separate TAPIS build

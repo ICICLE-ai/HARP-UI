@@ -7,9 +7,9 @@ configurations, plus allocations per system and a results folder. Everything
 else is decided here, from TAPIS, so the browser is never trusted with it:
 
 - the command, work folder and parameter types come from the app's TAPIS notes;
-- cores default to 1 per job; memory defaults to 4 GB per core; time defaults
+- cores default to 1 per node; memory per node defaults to 4 GB per core; time defaults
   from the sweep. All three are refused when they exceed TAPIS queue limits;
-- every job uses one node; GPU queues get --nv; configurations on one queue
+- every job uses one node; GPU queues request one GPU per node and get --nv; configurations on one queue
   share its per-user job limit.
 """
 
@@ -98,7 +98,7 @@ def resolve_target(system, queue_name, cfg, repetitions, timeout_min, configs_on
         raise SpecError(f"{where} needs at least {q['min_cores']} cores; asked for {cores}")
     memory = _positive_int(cfg.get("memory_mb"), f"{where}: memory") or _cap(max(MIN_MEMORY_MB, cores * MB_PER_CORE), max_mem)
     if max_mem and memory > max_mem:
-        raise SpecError(f"{where} allows at most {max_mem} MB of memory; asked for {memory}")
+        raise SpecError(f"{where} allows at most {max_mem} MB of memory per node; asked for {memory}")
     minutes = _positive_int(cfg.get("max_minutes"), f"{where}: max minutes") or \
         _cap(repetitions * timeout_min + STARTUP_MINUTES, max_min)
     if max_min and minutes > max_min:
@@ -106,9 +106,11 @@ def resolve_target(system, queue_name, cfg, repetitions, timeout_min, configs_on
 
     per_user = _limit(q, "max_jobs_per_user")
     concurrent = min(per_user, MAX_CONCURRENT) if per_user else DEFAULT_CONCURRENT
+    gpu = is_gpu(q)
     return {"system_id": system["id"], "queue": queue_name or None, "node_count": 1,
             "cores_per_node": cores, "memory_mb": memory, "max_minutes": minutes,
-            "container_args": "--nv" if is_gpu(q) else None,
+            "gpus_per_node": 1 if gpu else None,
+            "container_args": "--nv" if gpu else None,
             "scheduler_options": (allocation or "").strip() or None,
             # configurations on one queue share its per-user job limit
             "max_concurrent_jobs": max(1, concurrent // max(1, configs_on_queue))}
@@ -177,6 +179,10 @@ def build_sweep(sweep, apps, systems, allocations, storage, stamp, queue_validat
             raise SpecError(f"{sid!r} is not one of your TAPIS execution systems")
         if isinstance(systems[sid], Exception):
             raise SpecError(f"could not read {sid} from TAPIS: {systems[sid]}")
+        if systems[sid].get("enabled") is False:
+            raise SpecError(f"TAPIS system {sid!r} is disabled")
+        if (systems[sid].get("access") or {}).get("accessible") is False:
+            raise SpecError(f"TAPIS system {sid!r} is unavailable")
         queue = t.get("queue") or None
         system_queue = next((q for q in systems[sid].get("queues") or [] if q.get("name") == queue), {})
         reason = queue_validator(systems[sid], system_queue) if queue_validator else None

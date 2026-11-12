@@ -162,6 +162,45 @@ def create_resources(
     pod_definition = load_json("pod-harp-from-template.json")
     pod_definition["pod_id"] = pod_id
     pod_definition["template"] = target_template
+    osc_user = os.environ.get("HARP_OSC_SSH_USER", "").strip()
+    key_secret = os.environ.get("HARP_OSC_SSH_KEY_SECRET", "").strip()
+    known_hosts_secret = os.environ.get("HARP_OSC_KNOWN_HOSTS_SECRET", "").strip()
+    if any((osc_user, key_secret, known_hosts_secret)) and not all((osc_user, key_secret, known_hosts_secret)):
+        raise SystemExit(
+            "Live queue probing requires HARP_OSC_SSH_USER, HARP_OSC_SSH_KEY_SECRET, "
+            "and HARP_OSC_KNOWN_HOSTS_SECRET"
+        )
+    if osc_user:
+        pod_definition["secret_map"] = {
+            "OSC_SSH_KEY": f"${{secret:{key_secret}}}",
+            "OSC_KNOWN_HOSTS": f"${{secret:{known_hosts_secret}}}",
+        }
+        # A direct Pod environment map may replace, rather than merge with, the
+        # selected template tag. Carry its HARP settings forward explicitly.
+        pod_definition["environment_variables"] = dict(
+            tag_definition["pod_definition"].get("environment_variables", {})
+        )
+        pod_definition["environment_variables"].update({
+            "HARP_OSC_QUEUE_PROBE": "1",
+            "HARP_OSC_SSH_USER": osc_user,
+            "HARP_OSC_SSH_KEY": "/run/harp-secrets/id_ed25519",
+            "HARP_OSC_SSH_KNOWN_HOSTS": "/run/harp-secrets/known_hosts",
+            "HARP_QUEUE_REFRESH_SECONDS": os.environ.get("HARP_QUEUE_REFRESH_SECONDS", "86400"),
+            "HARP_QUEUE_MAX_AGE_SECONDS": os.environ.get("HARP_QUEUE_MAX_AGE_SECONDS", "172800"),
+        })
+        pod_definition["volume_mounts"].update({
+            "/run/harp-secrets/id_ed25519": {
+                "type": "ephemeral",
+                "config_content": "${pods:secrets:OSC_SSH_KEY}",
+                "config_permissions": "0600",
+            },
+            "/run/harp-secrets/known_hosts": {
+                "type": "ephemeral",
+                "config_content": "${pods:secrets:OSC_KNOWN_HOSTS}",
+                "config_permissions": "0644",
+            },
+        })
+        print("Enabling live OSC queue probing with Pod-mounted user secrets")
 
     pod = get_or_none(client.pods.get_pod, pod_id=pod_id)
     if pod is None:
@@ -169,14 +208,14 @@ def create_resources(
         print(f"Created Pod {pod_id} from {target_template}")
     else:
         current_template = str(value(pod, "template", "")).split("@", 1)[0]
-        if current_template == target_template:
+        if current_template == target_template and not replace_existing_pod:
             print(f"Using existing Pod {pod_id} from {target_template}")
         elif not replace_existing_pod:
             raise SystemExit(
                 f"Pod {pod_id} currently uses {current_template or 'a direct image'}, "
-                f"not {target_template}. The Pods update API cannot change image or "
-                "template. Re-run with --replace-existing-pod to stop, delete, and "
-                "recreate only the Pod; the persistent volume will be preserved."
+                f"not {target_template}, or its instance configuration needs updating. "
+                "Re-run with --replace-existing-pod to stop, delete, and recreate only "
+                "the Pod; the persistent volume will be preserved."
             )
         else:
             mounts = value(pod, "volume_mounts", {})
@@ -257,8 +296,8 @@ def parse_args() -> argparse.Namespace:
         "--replace-existing-pod",
         action="store_true",
         help=(
-            "Stop, delete, and recreate an existing Pod when it uses another "
-            "template. The harpdata persistent volume is preserved."
+            "Stop, delete, and recreate an existing Pod to update its template or "
+            "instance configuration. The harpdata persistent volume is preserved."
         ),
     )
     parser.add_argument(

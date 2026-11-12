@@ -50,7 +50,8 @@ def test_defaults_use_one_core_and_four_gb(ctx):
     # cores = 1; memory = 4 GB per core capped at the queue; minutes = reps x timeout + 10 capped at the queue
     assert (serial["cores_per_node"], serial["memory_mb"], serial["max_minutes"]) == (1, 4096, 50)
     assert serial["node_count"] == 1 and serial["container_args"] is None and serial["scheduler_options"] == "-A PAS2271"
-    assert (gpu["cores_per_node"], gpu["memory_mb"], gpu["container_args"]) == (8, 32768, "--nv")
+    assert (gpu["cores_per_node"], gpu["memory_mb"], gpu["container_args"], gpu["gpus_per_node"]) == (8, 32768, "--nv", 1)
+    assert serial["gpus_per_node"] is None
     assert (skx["cores_per_node"], skx["scheduler_options"], skx["max_concurrent_jobs"]) == (1, "-A TG-X", 10)
     assert s["summary"]["jobs"] == 12 and s["summary"]["total_runs"] == 24
 
@@ -76,7 +77,7 @@ def test_zero_configured_max_nodes_is_caught_before_submission(ctx):
 
     gw.get_system = with_zero_node_queue
     r = preview(client, plan())
-    assert not r["ok"] and "maxNodeCount=0" in r["sweeps"][0]["error"]
+    assert not r["ok"] and "configured incorrectly" in r["sweeps"][0]["error"]
 
 
 def test_configurations_on_one_queue_share_its_job_limit(ctx):
@@ -131,7 +132,7 @@ def test_inaccessible_execution_and_storage_systems_are_blocked(ctx):
     gw.inaccessible_systems = {"pitzer", "storage"}
     r = preview(client, plan())
     assert not r["ok"]
-    assert "access is unavailable" in r["sweeps"][0]["error"]
+    assert r["sweeps"][0]["error"] == "TAPIS system 'pitzer' is unavailable"
     assert "access is unavailable" in r["storage_error"]
 
 

@@ -21,11 +21,13 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import uuid as uuidlib
 from datetime import datetime, timezone
 
+from .campaign import is_status_check_error, scheduler_option_args
 from .tapis_gateway import TapisError
 
 RUN_TYPES = ("SD", "FS", "test_data")
@@ -35,6 +37,7 @@ MIN_ROWS = {"SD": 2, "FS": 4, "test_data": 1}
 NOT_FEATURES = {"campaign", "system", "hardware", "run_config", "run_type", "walltime"}
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 RUNNER = os.path.join(REPO_ROOT, "job_runner", "harp_build_runner.py")
+ESTIMATE_RUNNER = os.path.join(REPO_ROOT, "job_runner", "harp_estimate_runner.py")
 BUILD_TIMEOUT = int(os.environ.get("HARP_BUILD_TIMEOUT", "3600"))
 MODELS = {"LR": "Linear regression", "NN": "Neural network", "DTR": "Decision tree"}
 TRAINING_SETS = {"SD": "SD only", "SD+25FS": "SD + 25% of FS", "SD+50FS": "SD + 50% of FS", "SD+75FS": "SD + 75% of FS"}
@@ -162,6 +165,53 @@ class BuildManager:
         return sorted((b for b in self.builds.values() if b["owner"] == owner and (not app_id or b["app_id"] == app_id)),
                       key=lambda b: b["created_at"], reverse=True)
 
+    def estimate(self, owner, build_id, model_name, rows, gateway):
+        """Apply one saved model to feature-complete rows in an isolated runner."""
+        b = self.builds.get(build_id)
+        if not b or b["owner"] != owner:
+            raise ValueError("trained model build not found")
+        if b["status"] != "DONE":
+            raise ValueError("the selected model build is not finished")
+        metric = next((m for m in b.get("metrics", []) if m.get("MODEL_NAME") == model_name), None)
+        if not metric:
+            raise ValueError("the selected model is not part of this build")
+        if not rows or len(rows) > 500:
+            raise ValueError("estimate between 1 and 500 runs at a time")
+
+        model_ext = ".h5" if metric["RegModel"] == "NN" else ".pkl"
+        needed = [b["dataset_file"], "full_dataset_pca.csv", f"models/{model_name}{model_ext}"]
+        local_out = os.path.join(self.dir, b["id"], "out")
+        with tempfile.TemporaryDirectory(prefix="harp-estimate-") as temp:
+            artifacts = local_out if all(os.path.isfile(os.path.join(local_out, p)) for p in needed) else temp
+            if artifacts == temp:
+                for rel in needed:
+                    path = os.path.join(temp, rel)
+                    os.makedirs(os.path.dirname(path), exist_ok=True)
+                    with open(path, "wb") as f:
+                        f.write(gateway.download(b["storage"]["system_id"], f"{b['dest']}/{rel}"))
+            request = {"dataset_file": b["dataset_file"], "model_name": model_name,
+                       "model_type": metric["RegModel"], "adjust_factor": metric.get("ADJ_FACTOR") or 1,
+                       "rows": rows}
+            request_path, output_path = os.path.join(temp, "request.json"), os.path.join(temp, "result.json")
+            with open(request_path, "w") as f:
+                json.dump(request, f)
+            try:
+                proc = subprocess.run([self.python, ESTIMATE_RUNNER, "--artifacts", artifacts,
+                                       "--request", request_path, "--output", output_path],
+                                      capture_output=True, text=True, timeout=180)
+            except subprocess.TimeoutExpired as e:
+                raise RuntimeError("prediction took longer than 3 minutes") from e
+            try:
+                with open(output_path) as f:
+                    result = json.load(f)
+            except (OSError, ValueError) as e:
+                detail = (proc.stderr or proc.stdout or str(e)).strip().splitlines()[-1]
+                raise RuntimeError(f"the estimator did not return a result: {detail}") from e
+            if not result.get("ok"):
+                raise RuntimeError(result.get("error") or "the estimator failed")
+            return {"seconds": result["seconds"], "model": metric,
+                    "preprocess_max_error": result.get("preprocess_max_error")}
+
     def start(self, owner, app_id, label, sweeps, header, table, report, storage, gateway,
               models=None, training_sets=None, where=None, run=True):
         """where: {"mode": "local"} or {"mode": "tapis", "app_id", "app_version", "system_id", "queue",
@@ -200,8 +250,11 @@ class BuildManager:
         gateway.mkdir(sys_id, f"{dest}/input")
         gateway.upload(sys_id, f"{dest}/input/{b['dataset_file']}", data)
         params = {"appArgs": [{"arg": self.spec_arg(b)}], "archiveFilter": {"includeLaunchFiles": False}}
-        if w.get("scheduler_options"):
-            params["schedulerOptions"] = [{"arg": w["scheduler_options"]}]
+        scheduler_options = scheduler_option_args(w)
+        if scheduler_options:
+            params["schedulerOptions"] = scheduler_options
+        if w.get("container_args"):
+            params["containerArgs"] = [{"arg": w["container_args"]}]
         request = {"name": f"harp-build-{b['name']}-{b['id']}"[:64],
                    "description": f"HARP build: {', '.join(b['models'])} for {b['name']}",
                    "appId": w["app_id"], "appVersion": w["app_version"], "execSystemId": w["system_id"],
@@ -234,6 +287,8 @@ class BuildManager:
     def _poll(self, b, gw):
         job = b["job"]
         status = gw.job_status(job["uuid"])
+        if is_status_check_error(b.get("error")):
+            b["error"] = None
         job["status"] = status
         if status == "RUNNING":
             b["status"] = "RUNNING"

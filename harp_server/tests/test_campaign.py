@@ -6,6 +6,7 @@ import json
 import pytest
 
 from harp_server.campaign import CampaignManager, CampaignStore, build_job_request, merge_csvs
+from harp_server.tapis_gateway import TapisError
 from fake_tapis import FakeGateway
 from specs import euler_spec
 
@@ -161,7 +162,32 @@ def test_container_args_are_passed_to_tapis(setup):
     gw, manager = setup
     spec = euler_spec()
     spec["targets"][1]["container_args"] = "--nv"
+    spec["targets"][1]["gpus_per_node"] = 1
     c = manager.create(spec, gw)
     by_system = {j["system_id"]: build_job_request(c, j) for j in c["jobs"]}
     assert by_system["stampede"]["parameterSet"]["containerArgs"] == [{"arg": "--nv"}]
+    assert by_system["stampede"]["parameterSet"]["schedulerOptions"] == [{"arg": "--gpus-per-node=1"}]
     assert "containerArgs" not in by_system["pitzer"]["parameterSet"]
+
+
+def test_successful_status_repoll_clears_transient_error(setup):
+    gw, manager = setup
+    c = manager.create(euler_spec(), gw)
+    manager.tick()
+    job = next(j for j in c["jobs"] if j.get("uuid"))
+    original_status = gw.job_status
+    failed_once = False
+
+    def flaky_status(uuid):
+        nonlocal failed_once
+        if uuid == job["uuid"] and not failed_once:
+            failed_once = True
+            raise TapisError("connection aborted")
+        return original_status(uuid)
+
+    gw.job_status = flaky_status
+    manager.tick()
+    assert job["error"] == "status check failed: connection aborted"
+    gw.finish(job["uuid"], _csv([_row("SD", 10, 0.1)]))
+    manager.tick()
+    assert job["status"] == "FINISHED" and job["error"] is None

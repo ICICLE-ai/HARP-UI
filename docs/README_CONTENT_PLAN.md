@@ -27,15 +27,23 @@ Create images under `docs/images/` using the filenames already referenced by `RE
 | `tutorial-hosted-service.png` | Hosted HARP after authentication |
 | `tutorial-tapisui-service.png` | HARP in TapisUI Services without a second login prompt |
 | `tutorial-local-login.png` | Local login page with an empty token field |
-| `tutorial-select-app.png` | Euler app selector and expanded app metadata |
-| `tutorial-configure-sweep.png` | One small SD sweep before hardware selection |
-| `tutorial-select-hardware.png` | One system/queue and conservative resource configuration |
-| `tutorial-review-plan.png` | Ready review table with one small job |
-| `tutorial-monitor-jobs.png` | Sweep summary and jobs table with a finished job |
-| `tutorial-failure-details.png` | Classified failure plus sanitized raw Tapis detail |
-| `tutorial-profiled-data.png` | Profile metrics, timing table, and execution rows |
-| `tutorial-build-model.png` | Training coverage and selected estimator models |
-| `tutorial-estimate-runtime.png` | New configuration and runtime estimates |
+| `tutorial-generate-configure-sd.png` | SD sweep with list values `1, 2` and one repetition |
+| `tutorial-generate-targets-sd-ascend.png` | Two available Ascend partitions and scheduler options |
+| `tutorial-generate-targets-sd-cardinal.png` | One available Cardinal partition and scheduler options |
+| `tutorial-generate-plan-three-sweeps.png` | Sidebar after SD, FS, and test_data sweeps are added |
+| `tutorial-generate-review.png` | Complete ready plan immediately before submission |
+| `tutorial-generate-jobs-running.png` | Jobs page while submitted profiling work is active |
+| `tutorial-generate-jobs-finished.png` | All three sweep summaries in terminal states |
+| `tutorial-generate-profiled-data.png` | SD, FS, and test_data profile metrics and rows |
+| `tutorial-generate-job-name-failure.png` | One filtered sweep with the concise generated-name validation error |
+| `tutorial-build-training-data.png` | Only the new tutorial sweeps selected, with passing coverage checks |
+| `tutorial-build-models-where.png` | Models, training sets, build target, and destination |
+| `tutorial-build-running.png` | Local or Tapis build while queued/training |
+| `tutorial-build-trained-models.png` | Completed build, best model, and scores |
+| `tutorial-estimate-configure.png` | One independent run and one available queue |
+| `tutorial-estimate-select-model.png` | Best completed model selected |
+| `tutorial-estimate-generating.png` | Estimate request in progress |
+| `tutorial-estimate-result.png` | Rendered runtime prediction |
 | `howto-system-queue-status.png` | System access/status indicators and logical queue labels |
 | `howto-failure-details.png` | Failure category summary and expanded error |
 | `howto-results-location.png` | Campaign result path and resulting profile view |
@@ -48,14 +56,16 @@ Create images under `docs/images/` using the filenames already referenced by `RE
 
 - Use a consistent desktop viewport and browser zoom.
 - Capture only the application content unless browser chrome teaches something important.
-- Never include access tokens, passwords, private filesystem paths, usernames, allocation identifiers, or unrelated job IDs.
+- Never include access tokens, passwords, private filesystem paths, or unrelated job IDs. Use only an allocation identifier that the documentation owner has explicitly approved for the tutorial.
 - Use a small public/example application and synthetic or non-sensitive results.
 - Include enough surrounding UI that the reader can locate the control being discussed.
+- Capture unannotated source screenshots first. Add red boxes or callouts only to copies, so the originals remain reusable.
+- Name highlighted copies with an `-annotated.png` suffix; keep the clean filename for the source capture.
 - Add descriptive alt text explaining what the reader should notice.
 - Replace the visible screenshot-slot callout in `README.md` with standard Markdown once the image exists:
 
   ```markdown
-  ![HARP review page showing one ready profiling job](docs/images/tutorial-review-plan.png)
+  ![HARP review page showing three ready profiling sweeps](images/tutorial-generate-review.png)
   ```
 
 ## Demo maintenance checklist

@@ -1,8 +1,8 @@
 from harp_server.job_errors import classify_job_failure
 
 
-def classify(message="", condition="JOB_LAUNCH_FAILURE", queue="gpu"):
-    return classify_job_failure("FAILED", condition, message, "ascend-tapis", queue)
+def classify(message="", condition="JOB_LAUNCH_FAILURE", queue="gpu", system="ascend-tapis"):
+    return classify_job_failure("FAILED", condition, message, system, queue)
 
 
 def test_scheduler_failures_have_actionable_categories():
@@ -28,10 +28,32 @@ def test_scheduler_failures_have_actionable_categories():
     assert bad_queue["code"] == "queue_configuration"
     assert bad_queue["explanation"].endswith("This is a TAPIS configuration issue.")
 
+    missing_gpu = classify(
+        "JOBS_WORKER_PROCESSING_ERROR SingularityRunSlurmLauncher received exit code 1: "
+        "sbatch: error: QOSMinGRES sbatch: error: Batch job submission failed: "
+        "Job violates accounting/QOS policy (job submit limit, user's size and/or time limits)",
+        queue="gpu",
+        system="cardinal-tapis",
+    )
+    assert missing_gpu["code"] == "queue_configuration"
+    assert missing_gpu["label"] == "Queue configuration"
+    assert missing_gpu["explanation"] == (
+        "TAPIS queue 'gpu' did not add the GPU request required by Cardinal. "
+        "This is a TAPIS configuration issue."
+    )
+
 
 def test_auth_container_and_terminal_conditions_are_classified():
     assert classify("SSH_POOL_MISSING_CREDENTIALS Missing credentials")["code"] == "authentication"
     assert classify("FATAL: Apptainer image format not recognized", "SCHEDULER_TERMINATED")["code"] == "container"
     assert classify("", "SCHEDULER_OUT_OF_MEMORY")["code"] == "out_of_memory"
     assert classify("", "SCHEDULER_TIMEOUT")["code"] == "time_limit"
+
+
+def test_tapis_job_name_limit_is_concise():
+    result = classify("TAPIS_JSON_VALIDATION_FAILURE JSON validation error: "
+                      "#/name: expected maxLength: 64, actual: 72", condition="")
+    assert result["code"] == "job_request"
+    assert result["label"] == "Job request"
+    assert result["explanation"] == "TAPIS rejected a generated job name longer than 64 characters."
 

@@ -14,6 +14,7 @@ FAILURE_LABELS = {
     "staging": "Input/job staging",
     "remote_access": "Remote system access",
     "application": "Application error",
+    "job_request": "Job request",
     "cancelled": "Cancelled",
     "unknown": "Other TAPIS error",
 }
@@ -33,10 +34,16 @@ def classify_job_failure(status, condition=None, message=None, system_id=None, q
 
     if status == "CANCELLED" or "cancelled_by_user" in text:
         code, explanation = "cancelled", "Job was cancelled."
+    elif ("#/name" in text and "maxlength" in text) or "job name" in text and "64" in text:
+        code, explanation = "job_request", "TAPIS rejected a generated job name longer than 64 characters."
     elif any(x in text for x in ("ssh_pool_missing_credentials", "missing credentials", "authentication failed")):
         code, explanation = "authentication", f"TAPIS credentials are missing for the execution system{where}."
     elif any(x in text for x in ("must specify account", "invalid account", "invalid qos", "scheduler account")):
         code, explanation = "allocation", "The scheduler rejected the account or QOS."
+    elif any(x in text for x in ("qosmingres", "qos min gres", "minimum gres")):
+        resource = "GPU request" if "gpu" in str(queue or "").lower() else "required accelerator request"
+        code, explanation = "queue_configuration", (f"{selected} did not add the {resource} required by {cluster}. "
+                                                     "This is a TAPIS configuration issue.")
     elif any(x in text for x in ("required partition not available", "invalid partition", "inactive or drain", "partition is down")):
         code, explanation = "queue_unavailable", (f"{selected} maps to an unavailable {cluster} partition. "
                                                    "This is a TAPIS configuration issue.")

@@ -130,6 +130,61 @@ curl https://harp.pods.icicleai.tapis.io/healthz
 # {"status":"ok"}
 ```
 
+### Optional: live OSC queue validation
+
+OSC documentation is retained as a reference, but it is not used to disable
+queues. HARP can instead SSH to Ascend, Pitzer, and Cardinal and refresh
+`sinfo --all --noheader --format='%P|%a|%t'` at Pod startup and once every 24 hours.
+
+Before configuring Pod secrets, run the same implementation locally without
+printing or copying either credential file:
+
+```powershell
+& .\harp_server\scripts\test_queue_probe.ps1 `
+  -OscUser '<osc-username>' `
+  -SshKeyPath 'C:\Users\you\.ssh\id_ed25519' `
+  -KnownHostsPath 'C:\Users\you\.ssh\known_hosts'
+```
+
+Add `-StartServer` after the one-shot check succeeds to launch local HARP with
+the daily probe configuration. The script restores the calling process's prior
+HARP environment when it exits.
+
+Create two user-owned Tapis Secrets:
+
+- `osc_ssh_private_key`: a noninteractive OSC SSH private key authorized for
+  the Pod owner's OSC account.
+- `osc_known_hosts`: pinned, independently verified host-key entries for
+  `ascend.osc.edu`, `pitzer.osc.edu`, and `cardinal.osc.edu`.
+
+Then recreate the Pod with the secret names—not their values—in the deployment
+environment:
+
+```bash
+export HARP_OSC_SSH_USER='<osc-username>'
+export HARP_OSC_SSH_KEY_SECRET='osc_ssh_private_key'
+export HARP_OSC_KNOWN_HOSTS_SECRET='osc_known_hosts'
+export HARP_QUEUE_REFRESH_SECONDS=86400
+export HARP_QUEUE_MAX_AGE_SECONDS=172800
+python deploy/deploy_pod.py --replace-existing-pod
+```
+
+The script uses the Pods `secret_map`, mounts the key as mode `0600`, mounts
+`known_hosts` as mode `0644`, and enables strict host-key checking. It does not
+put either secret value in the Pod definition or repository. If probing fails
+or a snapshot becomes stale, OSC queues are marked `not live-checked` and stay
+selectable; stale documentation never voids them. A queue is disabled only
+when TAPIS has an invalid queue definition, the live Slurm list lacks its
+mapped partition, or Slurm reports that partition unavailable.
+
+Each successful probe is also written to
+`$HARP_SERVER_DATA/osc_queue_catalog.json`. In the Pod this is on the existing
+`harpdata` persistent volume, so a restart can immediately reuse the last
+snapshot while the startup refresh runs. The cached file contains only cluster
+hosts, partition states, and timestamps; it never contains the SSH key, JWT, or
+other credentials. A cached snapshot is ignored after
+`HARP_QUEUE_MAX_AGE_SECONDS` (48 hours by default).
+
 ## 4. Portal configuration
 
 Production settings in the manifest:
