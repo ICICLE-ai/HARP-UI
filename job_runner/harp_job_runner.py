@@ -69,19 +69,34 @@ def system_details():
     }
     try:
         import psutil
-        freq = psutil.cpu_freq()
-        details["sys_phy_cores_count"] = psutil.cpu_count(logical=False)
-        details["sys_tot_cores_count"] = psutil.cpu_count(logical=True)
+        # Hardware telemetry is useful training context, but an unavailable OS
+        # counter must never prevent the user's workload from running. Windows
+        # can raise RuntimeError from swap_memory() when PDH counters are off;
+        # containers can similarly omit individual procfs/cgroup counters.
+        def metric(read, default=""):
+            try:
+                return read()
+            except (AttributeError, OSError, RuntimeError):
+                return default
+
+        freq = metric(psutil.cpu_freq, None)
+        details["sys_phy_cores_count"] = metric(lambda: psutil.cpu_count(logical=False), os.cpu_count())
+        details["sys_tot_cores_count"] = metric(lambda: psutil.cpu_count(logical=True), os.cpu_count())
         details["sys_cpufreq_mhz"] = max(freq.max, freq.min, freq.current) if freq else ""
-        details["sys_phy_mem_bytes"] = psutil.virtual_memory().total
-        details["sys_swap_mem_bytes"] = psutil.swap_memory().total
+        memory = metric(psutil.virtual_memory, None)
+        swap = metric(psutil.swap_memory, None)
+        details["sys_phy_mem_bytes"] = memory.total if memory else ""
+        details["sys_swap_mem_bytes"] = swap.total if swap else 0
     except ImportError:
         cores = os.cpu_count()
         details["sys_phy_cores_count"] = cores
         details["sys_tot_cores_count"] = cores
         details["sys_cpufreq_mhz"] = ""
-        details["sys_phy_mem_bytes"] = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
-        details["sys_swap_mem_bytes"] = ""
+        try:
+            details["sys_phy_mem_bytes"] = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
+        except (AttributeError, OSError, ValueError):
+            details["sys_phy_mem_bytes"] = ""
+        details["sys_swap_mem_bytes"] = 0
     return details
 
 

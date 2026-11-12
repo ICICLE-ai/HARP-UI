@@ -38,7 +38,7 @@ def test_queues_say_whether_they_have_gpus(ctx):
     assert {q["name"]: q["gpu"] for q in pitzer["queues"]} == {"serial": False, "parallel": False, "gpuserial": True}
 
 
-def test_defaults_come_from_the_queue(ctx):
+def test_defaults_use_one_core_and_four_gb(ctx):
     client, _, _ = ctx
     _login(client)
     r = preview(client, plan(sweep(targets=[{"system_id": "pitzer", "queue": "serial"},
@@ -47,11 +47,12 @@ def test_defaults_come_from_the_queue(ctx):
     assert r["ok"], r
     [s] = r["sweeps"]
     serial, gpu, skx = s["targets"]
-    # cores = queue max; memory = 4 GB per core capped at the queue; minutes = reps x timeout + 10 capped at the queue
-    assert (serial["cores_per_node"], serial["memory_mb"], serial["max_minutes"]) == (40, 163840, 50)
+    # cores = 1; memory = 4 GB per core capped at the queue; minutes = reps x timeout + 10 capped at the queue
+    assert (serial["cores_per_node"], serial["memory_mb"], serial["max_minutes"]) == (1, 4096, 50)
     assert serial["node_count"] == 1 and serial["container_args"] is None and serial["scheduler_options"] == "-A PAS2271"
-    assert (gpu["cores_per_node"], gpu["memory_mb"], gpu["container_args"]) == (8, 32768, "--nv")
-    assert (skx["cores_per_node"], skx["scheduler_options"], skx["max_concurrent_jobs"]) == (48, "-A TG-X", 10)
+    assert (gpu["cores_per_node"], gpu["memory_mb"], gpu["container_args"], gpu["gpus_per_node"]) == (8, 32768, "--nv", 1)
+    assert serial["gpus_per_node"] is None
+    assert (skx["cores_per_node"], skx["scheduler_options"], skx["max_concurrent_jobs"]) == (1, "-A TG-X", 10)
     assert s["summary"]["jobs"] == 12 and s["summary"]["total_runs"] == 24
 
 
@@ -60,6 +61,23 @@ def test_time_limit_is_capped_at_the_queue(ctx):
     _login(client)
     r = preview(client, plan(sweep(repetitions=5, timeout_min=30)))
     assert r["sweeps"][0]["targets"][0]["max_minutes"] == 60
+
+
+def test_zero_configured_max_nodes_is_caught_before_submission(ctx):
+    client, _, gateways = ctx
+    _login(client)
+    gw = gateways["alice"]
+    original = gw.get_system
+
+    def with_zero_node_queue(system_id):
+        system = original(system_id)
+        if system_id == "pitzer":
+            system["queues"][0]["configured_max_nodes"] = 0
+        return system
+
+    gw.get_system = with_zero_node_queue
+    r = preview(client, plan())
+    assert not r["ok"] and "configured incorrectly" in r["sweeps"][0]["error"]
 
 
 def test_configurations_on_one_queue_share_its_job_limit(ctx):
@@ -107,6 +125,17 @@ def test_storage_must_be_a_system_and_an_absolute_folder(ctx):
     assert not r["ok"] and r["storage_error"] and r["sweeps"][0]["ok"] and r["sweeps"][0]["summary"]["jobs"] == 4
 
 
+def test_inaccessible_execution_and_storage_systems_are_blocked(ctx):
+    client, _, gateways = ctx
+    _login(client)
+    gw = gateways["alice"]
+    gw.inaccessible_systems = {"pitzer", "storage"}
+    r = preview(client, plan())
+    assert not r["ok"]
+    assert r["sweeps"][0]["error"] == "TAPIS system 'pitzer' is unavailable"
+    assert "access is unavailable" in r["storage_error"]
+
+
 def test_the_command_comes_from_tapis_not_the_browser(ctx):
     client, manager, gateways = ctx
     _login(client)
@@ -128,7 +157,7 @@ def test_submit_is_all_or_nothing_and_jobs_ask_for_the_resolved_hardware(ctx):
     assert [c["name"].split("-")[2] for c in ok] == ["a", "b"] and len(manager.campaigns) == 2
     manager.tick()
     req = gateways["alice"].jobs[gateways["alice"].submitted[0]]["request"]
-    assert (req["execSystemLogicalQueue"], req["coresPerNode"], req["memoryMB"], req["nodeCount"]) == ("serial", 40, 163840, 1)
+    assert (req["execSystemLogicalQueue"], req["coresPerNode"], req["memoryMB"], req["nodeCount"]) == ("serial", 1, 4096, 1)
     assert req["parameterSet"]["schedulerOptions"][0]["arg"] == "-A PAS2271"
 
 

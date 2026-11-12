@@ -21,10 +21,11 @@ directly.
 
 | Path | What it does |
 |---|---|
-| `harp_server/plan.py` | Turns the profiling page's plan into sweeps. Reads each app's command and parameters from its TAPIS notes, fills in each job's hardware from the queue (cores = queue max, 4 GB per core, runs × timeout + 10 min, 1 node, `--nv` on GPU queues, per-queue job limit shared between configurations) and refuses anything over the queue's TAPIS limits. |
+| `harp_server/plan.py` | Turns the profiling page's plan into sweeps. Reads each app's command and parameters from its TAPIS notes and resolves each selected hardware configuration. Every profiling job uses 1 node and defaults to 1 core, 4 GB per requested core, and runs × timeout + 10 minutes, capped by the Tapis logical-queue limits. GPU-labelled queues request one GPU and add `--nv`; per-queue concurrency is shared between configurations. |
 | `harp_server/sweep.py` | Validates the spec, expands every parameter combination (SD / FS / test_data) and splits it into jobs. **split** spreads the jobs round-robin over the systems (by weight). **replicate** runs every job on every system so you can profile across hardware. |
 | `harp_server/campaign.py` | Submits jobs without exceeding each system's *max concurrent jobs*, polls TAPIS for job status, reads each running job's progress through TAPIS Files, merges the CSVs when every job has ended, and lets you cancel a sweep. Each campaign's state is saved as a JSON file, so it survives a server restart. |
 | `harp_server/tapis_gateway.py` | The only code that talks to TAPIS (tapipy): login, systems and queues, apps, files, jobs. |
+| `harp_server/queue_catalog.py` | Loads and persists the optional daily OSC Slurm probe for Ascend, Pitzer, and Cardinal and classifies Tapis queue-to-partition mappings without modifying Tapis. |
 | `harp_server/app.py` | The REST API, and serves `profiling.html` (the UI) at `/`. |
 | `../job_runner/harp_job_runner.py` | Runs inside each job's container. It executes its combinations × repetitions, measures walltime and hardware, and writes `harp_profile.csv` to the TAPIS output directory. |
 
@@ -48,7 +49,7 @@ which is the name the existing **build** phase looks for. Runs that fail go to
    `ghcr.io/<owner>/harp-sweep-eulernumber:1.0.0`, so you don't need Docker locally. Make that
    package public once so the clusters can pull it.
 3. **Register the systems and credentials** as in `Notebooks/Executing_HARP_using_TAPIS*.ipynb`.
-4. **Just for you, on your laptop (macOS or Linux):** you need Python 3.11 or 3.12 and this repository.
+4. **Just for you, on your laptop:** you need Python 3.11 or 3.12 and this repository. On macOS or Linux:
    ```bash
    ./harp_server/scripts/run_local.sh      # first run installs fastapi, uvicorn and tapipy into harp_server/.venv
    ```
@@ -56,6 +57,11 @@ which is the name the existing **build** phase looks for. Runs that fail go to
    while sweeps run (e.g. `caffeinate -i ./harp_server/scripts/run_local.sh` on a Mac); if it sleeps or you stop
    the server, the jobs already in TAPIS keep running, and after you start it again and log in, the server
    picks the sweeps back up. State is kept in `~/.harp_server`.
+
+   On Windows PowerShell, create `harp_server/.venv`, install both `requirements.txt` and
+   `requirements-build.txt`, then run `python -m uvicorn harp_server.app:app --host 127.0.0.1 --port 8000`
+   from the `harp_server` directory. The root [README](../README.md#tutorial-run-harp-ui-on-your-computer)
+   contains the exact commands.
 
 5. **For other people, run the server over HTTPS** (it receives TAPIS access tokens, so it must use HTTPS):
    ```bash
@@ -84,6 +90,11 @@ which is the name the existing **build** phase looks for. Runs that fail go to
    - `HARP_PORTAL_ORIGINS`: exact comma-separated TapisUI origins allowed to frame HARP and hand off a token.
      When unset, framing remains disabled.
    - `HARP_SESSION_SAME_SITE`: session-cookie policy (`strict`, `lax` or `none`). Use `none` for the hosted iframe.
+   - `HARP_OSC_QUEUE_PROBE`: enable the independent OSC Slurm partition probe.
+   - `HARP_OSC_SSH_USER`, `HARP_OSC_SSH_KEY`, `HARP_OSC_SSH_KNOWN_HOSTS`: dedicated noninteractive probe identity and pinned host keys.
+   - `HARP_QUEUE_REFRESH_SECONDS`: probe interval; default `86400` (once per day).
+   - `HARP_QUEUE_MAX_AGE_SECONDS`: stop trusting a persisted snapshot after this age; default `172800`.
+   - `HARP_QUEUE_PROBE_TIMEOUT_SECONDS`: timeout for each fixed, read-only `sinfo` invocation.
 
    To deploy this server as an ICICLE Tapis Pod, including its persistent volume and TapisUI authentication
    handshake, follow [`deploy/README.md`](../deploy/README.md).
@@ -95,11 +106,11 @@ page, `profiling.html` (repository root), with three main tabs, each with its ow
 
 | Main tab | Sub-tabs |
 |---|---|
-| **HARP Generate** | 1 Configure: pick a TAPIS app ("From the TAPIS app" shows what comes from it: container, command, work folder, where its parameters come from, its job defaults, and that output goes to `/TapisOutput`), set up a sweep (run type, repetitions, timeout, single or list values per parameter), tick systems and queues and open each to set its hardware configurations (cores, memory, max minutes, within the queue's TAPIS limits), and enter each system's **account** (allocation, e.g. `-A PAS2271`); add the sweep to the plan. 2 Review & submit: the server checks every sweep against TAPIS and shows what each job asks for. **Results location**: where TAPIS copies each job's output (the job's archive location) and the merged CSV goes; it is filled in from your last sweep, or on OSC `/fs/scratch/<project>/<user>/harp_runs` from the account. Optionally **copy the results to another location**: when the sweep finishes, the server copies its whole folder there with a TAPIS Files transfer task (no job and no allocation account, just your TAPIS login on both systems and write permission). Confirm and submit (all or nothing). 3 Profiled data: per app, every execution with its parameters, hardware and time, pooled across sweeps; medians by run type, hardware and parameter; CSV export. 4 Jobs: every TAPIS job, profiling and build, with its type, hardware and runs done; cancel a sweep. |
+| **HARP Generate** | 1 Configure: pick a Tapis app, set up SD / FS / test_data sweeps, tick available systems and queues, request cores/memory/time for the one node used by each job, and enter each system's scheduler options (for example `-A PAS2271`). Unavailable systems and queues are hidden unless **Show unavailable** is enabled. **Add to plan** warns before continuing when a selected system has no allocation. 2 Review & submit: validate every sweep, choose the archive/results location, confirm, and submit the plan all-or-nothing. 3 Profiled data: inspect and export successful timing rows. 4 Jobs: poll profiling and build jobs, inspect concise failure categories and sanitized raw details, and cancel a sweep. |
 | **HARP Build** | 1 Training data: pick the app and the sweeps to learn from (data checks folded away). 2 Models & where: models and training sets, where the build runs (a TAPIS system as a job of the HARP build app, or this computer) and where the models are saved. 3 Trained models: every build with its best model and scores. |
-| **HARP Estimate** | 1 Configure: pick an app, give one value per parameter (one run), tick the queues and cores it would get, add it to the estimate list (the model's independent examples). 2 Select model: per app, its trained models best first; the best is preselected. 3 Estimates: every entry with its model. Computing the estimates comes next. |
+| **HARP Estimate** | 1 Configure: pick an app, give one value per parameter (one run), tick the queues and cores it would get, add it to the estimate list (the model's independent examples). 2 Select model: per app, its trained models best first; the best is preselected. 3 Estimates: apply the selected saved models and compare predicted run times. A target partition must have successful profiling data so HARP can supply its measured hardware features. |
 
-There is no header and no log-out button: the login screen comes back when the TAPIS session expires.
+At startup the independent Apps, Systems, Campaigns, and Jobs requests run together. System access badges transition from **CHECKING** to **AVAILABLE** or **UNAVAILABLE** in the background, and Build destinations populate from inventory without waiting for profile CSV downloads. Short-lived client/server caches and in-flight request reuse prevent repeated tab changes from re-downloading the same data. The login screen returns when the Tapis session expires.
 
 The **?** buttons explain the terms: SD (scaled-down), FS (full-scale) and test_data runs; sweeps and campaigns (one
 submitted sweep is one campaign: the server's record of its TAPIS jobs and its results folder); the models; the
@@ -159,8 +170,11 @@ server finds it (it is not listed as an app to profile). For builds on this comp
 | `POST /api/login`, `POST /api/logout`, `GET /api/me` | Session (TAPIS token kept on the server). |
 | `GET /api/config`, `GET /api/health`, `GET /healthz` | Public portal bootstrap settings and Pod health checks. |
 | `GET /api/tapis/apps` | Your TAPIS apps with their sweep parameters (from the app notes). |
+| `GET /api/tapis/inventory` | All visible systems plus execution systems from one Tapis request. |
 | `GET /api/tapis/exec-systems` | Systems you can run on, with their queues and limits (`batchLogicalQueues`). |
 | `GET /api/tapis/systems` | Every system, for the results folder (storage-only systems too). |
+| `GET /api/tapis/systems/<id>/access` | Fresh read-only Tapis Files access check used by the UI status badge. |
+| `GET /api/tapis/queue-probe` | Health and timestamps for the independent OSC Slurm probe, without credentials. |
 | `POST /api/plan/preview` | Check a plan: per sweep, its summary and each job's resolved hardware, or why it is refused. |
 | `POST /api/plan/submit` | Submit a plan, all or nothing. |
 | `GET /api/campaigns`, `POST /api/campaigns/<id>/cancel` | Sweeps and cancelling one. |
@@ -169,6 +183,7 @@ server finds it (it is not listed as an app to profile). For builds on this comp
 | `POST /api/apps/<id>/training-data`, `GET /api/apps/<id>/training-data.csv?sweeps=a,b` | Pool and standardize sweeps for the build phase. |
 | `GET /api/build-options` | The models and training sets HARP can build, and the TAPIS build app if registered. |
 | `POST /api/apps/<id>/builds`, `GET /api/builds?app_id=` | Build models from those sweeps (`models`, `training_sets`, `run_on`: a TAPIS system/queue or this computer); builds with their status and scores. |
+| `POST /api/estimates` | Apply selected completed models to app parameters and one or more system/queue resource targets. |
 
 A plan looks like:
 
@@ -187,7 +202,8 @@ Leave `cores`, `memory_mb` or `max_minutes` out to use the defaults from the que
 ## Tests
 
 ```bash
-cd harp_server && python3 -m pytest -q tests
+python3 -m pytest harp_server/tests -q
 ```
 The tests use an in-memory fake of TAPIS (`tests/fake_tapis.py`). The job runner is tested by
-really running the Euler example.
+really running the Euler example. The suite also runs the local model-training pipeline, applies a saved model through
+the Estimate API, validates remote Tapis build requests (including GPU queues), and checks transient polling recovery.

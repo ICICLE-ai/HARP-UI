@@ -6,6 +6,8 @@ never touches cluster file systems directly.
 
 import threading
 import time
+import re
+from datetime import datetime, timezone
 
 TERMINAL_STATUSES = {"FINISHED", "FAILED", "CANCELLED"}
 
@@ -25,6 +27,33 @@ class TapisError(RuntimeError):
     pass
 
 
+def login_error_message(error):
+    """Turn Tapipy's nested authentication exceptions into one useful sentence."""
+    raw = " ".join(str(error or "").split())
+    low = raw.lower()
+    if low.startswith("invalid or expired tapis access token"):
+        return "Invalid or expired TAPIS access token. Get a new token and try again."
+    if low.startswith("could not reach the tapis tenants service"):
+        return "Could not reach the TAPIS Tenants service. Check the tenant URL and try again."
+    if low.startswith("could not connect to tapis"):
+        return "Could not connect to TAPIS. Check the tenant URL and try again."
+    token_markers = (
+        "invalid tapis token", "invalid access token", "invalid token", "bad token",
+        "token has expired", "token is expired", "expired token", "jwt expired",
+        "token validation failed", "token could not be validated", "unauthorized",
+        "not enough segments", "invalid header string", "invalid crypto padding",
+    )
+    if any(marker in low for marker in token_markers):
+        return "Invalid or expired TAPIS access token. Get a new token and try again."
+    if "unable to retrieve sites and tenants" in low or "tenants api" in low:
+        return "Could not reach the TAPIS Tenants service. Check the tenant URL and try again."
+    if any(marker in low for marker in ("connection aborted", "connection refused", "timed out", "timeout")):
+        return "Could not connect to TAPIS. Check the tenant URL and try again."
+    cleaned = re.sub(r"^tapis login failed:\s*", "", raw, flags=re.IGNORECASE)
+    cleaned = re.sub(r"^(?:message:\s*)+", "", cleaned, flags=re.IGNORECASE)
+    return "TAPIS login failed" + (f": {cleaned}" if cleaned else ".")
+
+
 def _get(obj, name, default=None):
     if isinstance(obj, dict):
         return obj.get(name, default)
@@ -39,6 +68,32 @@ def _limit(v):
     return v if isinstance(v, (int, float)) and 0 < v < UNLIMITED else None
 
 
+def _system_view(s):
+    """The static system fields HARP needs from a TAPIS System definition."""
+    default = _get(s, "batchDefaultLogicalQueue")
+    queues = [{"name": _get(q, "name"), "hpc_queue": _get(q, "hpcQueueName"),
+               "description": _get(q, "description"), "default": _get(q, "name") == default,
+               "max_jobs": _limit(_get(q, "maxJobs")), "max_jobs_per_user": _limit(_get(q, "maxJobsPerUser")),
+               "min_nodes": _get(q, "minNodeCount"), "max_nodes": _limit(_get(q, "maxNodeCount")),
+               # Keep the literal value too. The Systems API commonly uses 0
+               # for an unset limit, but the Jobs service rejects a one-node
+               # request when a logical queue actually advertises maxNodeCount=0.
+               "configured_max_nodes": _get(q, "maxNodeCount"),
+               "min_cores": _get(q, "minCoresPerNode"), "max_cores": _limit(_get(q, "maxCoresPerNode")),
+               "min_memory_mb": _get(q, "minMemoryMB"), "max_memory_mb": _limit(_get(q, "maxMemoryMB")),
+               "min_minutes": _get(q, "minMinutes"), "max_minutes": _limit(_get(q, "maxMinutes"))}
+              for q in (_get(s, "batchLogicalQueues") or []) if _get(q, "name") is not None]
+    return {"id": _get(s, "id"), "host": _get(s, "host"), "description": _get(s, "description") or "",
+            "system_type": _get(s, "systemType"), "enabled": _get(s, "enabled", True) is not False,
+            "can_exec": bool(_get(s, "canExec")), "can_run_batch": bool(_get(s, "canRunBatch")),
+            "effective_user": _get(s, "effectiveUserId"),
+            "authn_method": _get(s, "defaultAuthnMethod"),
+            "batch_scheduler": _get(s, "batchScheduler"),
+            "runtimes": [_get(r, "runtimeType") for r in (_get(s, "jobRuntimes") or [])],
+            "default_queue": default, "queues": queues,
+            "job_working_dir": _get(s, "jobWorkingDir"), "root_dir": _get(s, "rootDir")}
+
+
 class TapisGateway:
     """Thin, thread-safe wrapper around a logged-in tapipy client."""
 
@@ -48,6 +103,9 @@ class TapisGateway:
         self.base_url = base_url
         self._fixed_expiry = expires_at  # only used when there is no client (tests)
         self._lock = threading.Lock()
+        self._job_details_cache = (0.0, {})
+        self._system_access_cache = {}
+        self._apps_cache = (0.0, None)
 
     @property
     def expires_at(self):
@@ -91,7 +149,7 @@ class TapisGateway:
                 client.get_tokens()
         except Exception as e:
             msg = str(e).replace(password, "***") if password else str(e)
-            raise TapisError(f"TAPIS login failed: {msg}") from None
+            raise TapisError(login_error_message(msg)) from None
         finally:
             password = None
         client.password = None
@@ -110,45 +168,59 @@ class TapisGateway:
 
     # ----------------------------------------------------------------- systems
     def list_systems(self):
-        systems = self._call(self.client.systems.getSystems, listType="ALL", limit=-1)
-        return [{"id": _get(s, "id"), "host": _get(s, "host"), "system_type": _get(s, "systemType"),
-                 "can_exec": bool(_get(s, "canExec")), "effective_user": _get(s, "effectiveUserId")}
-                for s in systems]
+        """All visible systems in one request, with their configured queues.
+
+        Previously HARP fetched a summary and then fetched every execution
+        system again one-by-one. allAttributes avoids that N+1 startup delay.
+        """
+        systems = self._call(self.client.systems.getSystems, listType="ALL", limit=-1,
+                             select="allAttributes")
+        return [self._with_cached_access(_system_view(s)) for s in systems]
 
     def get_system(self, system_id):
         """A system and its batch queues, as TAPIS defines them (LogicalQueue).
         A max of 0 or below (not set) or 2147483647 (TAPIS's 'unlimited') becomes None: no limit."""
-        s = self._call(self.client.systems.getSystem, systemId=system_id)
-        default = _get(s, "batchDefaultLogicalQueue")
-        queues = [{"name": _get(q, "name"), "hpc_queue": _get(q, "hpcQueueName"),
-                   "description": _get(q, "description"), "default": _get(q, "name") == default,
-                   "max_jobs": _limit(_get(q, "maxJobs")), "max_jobs_per_user": _limit(_get(q, "maxJobsPerUser")),
-                   "min_nodes": _get(q, "minNodeCount"), "max_nodes": _limit(_get(q, "maxNodeCount")),
-                   "min_cores": _get(q, "minCoresPerNode"), "max_cores": _limit(_get(q, "maxCoresPerNode")),
-                   "min_memory_mb": _get(q, "minMemoryMB"), "max_memory_mb": _limit(_get(q, "maxMemoryMB")),
-                   "min_minutes": _get(q, "minMinutes"), "max_minutes": _limit(_get(q, "maxMinutes"))}
-                  for q in (_get(s, "batchLogicalQueues") or [])]
-        return {"id": _get(s, "id"), "host": _get(s, "host"), "description": _get(s, "description") or "",
-                "system_type": _get(s, "systemType"), "enabled": _get(s, "enabled", True) is not False,
-                "can_exec": bool(_get(s, "canExec")), "can_run_batch": bool(_get(s, "canRunBatch")),
-                "batch_scheduler": _get(s, "batchScheduler"),
-                "runtimes": [_get(r, "runtimeType") for r in (_get(s, "jobRuntimes") or [])],
-                "default_queue": default, "queues": queues,
-                "job_working_dir": _get(s, "jobWorkingDir"), "root_dir": _get(s, "rootDir")}
+        return self._with_cached_access(
+            _system_view(self._call(self.client.systems.getSystem, systemId=system_id)))
 
     def exec_systems(self):
         """Every system the user can run jobs on, each with its queues."""
-        out = []
-        for s in self.list_systems():
-            if not s["can_exec"]:
-                continue
-            try:
-                out.append(self.get_system(s["id"]))
-            except TapisError as e:
-                out.append({**s, "queues": [], "error": str(e)})
-        return out
+        return [s for s in self.list_systems() if s["can_exec"]]
+
+    def _with_cached_access(self, system):
+        cached = getattr(self, "_system_access_cache", {}).get(system["id"])
+        return {**system, "access": dict(cached) if cached else {
+            "system_id": system["id"], "status": "unknown", "accessible": None,
+            "checked_at": None, "error": None}}
+
+    def check_system_access(self, system_id, refresh=False):
+        """Test real remote access exactly as TapisUI does: list `/` with Files.
+
+        This is read-only and checks the whole Tapis-to-host authentication path.
+        It does not infer access from static credential metadata in the System definition.
+        The browser requests one fresh check per system when the page loads. Plan
+        validation then reuses that result rather than polling the remote host.
+        A failed listing means access is unavailable; the underlying cause may be
+        missing credentials, invalid credentials, host downtime, or another
+        Files/SSH error.
+        """
+        cached = self._system_access_cache.get(system_id)
+        if cached and not refresh:
+            return dict(cached)
+        try:
+            self._call(self.client.files.listFiles, systemId=system_id, path="/", limit=1)
+            result = {"system_id": system_id, "status": "accessible", "accessible": True,
+                      "checked_at": datetime.now(timezone.utc).isoformat(), "error": None}
+        except TapisError as e:
+            result = {"system_id": system_id, "status": "unavailable", "accessible": False,
+                      "checked_at": datetime.now(timezone.utc).isoformat(), "error": str(e)}
+        self._system_access_cache[system_id] = result
+        return dict(result)
 
     def list_apps(self):
+        cached_at, cached = self._apps_cache
+        if cached is not None and time.monotonic() - cached_at < 30:
+            return [dict(app) for app in cached]
         apps = self._call(self.client.apps.getApps, listType="ALL", limit=-1, select="allAttributes")
         out = []
         for a in apps:
@@ -165,7 +237,8 @@ class TapisGateway:
                 "app_args": [{"name": _get(x, "name"), "arg": _get(x, "arg")}
                              for x in (_get(params, "appArgs") or [])],
             })
-        return out
+        self._apps_cache = (time.monotonic(), out)
+        return [dict(app) for app in out]
 
     # ------------------------------------------------------------------- files
     def mkdir(self, system_id, path):
@@ -186,6 +259,41 @@ class TapisGateway:
 
     def job_status(self, uuid) -> str:
         return _get(self._call(self.client.jobs.getJobStatus, jobUuid=uuid), "status")
+
+    def list_job_details(self, uuids=None, limit=1000):
+        """Recent jobs keyed by UUID, with full failure messages for HARP jobs.
+
+        The TAPIS JobListDTO deliberately omits lastMessage and remoteResultInfo,
+        so failed jobs must be hydrated with getJob before their errors can be
+        classified. Only local HARP UUIDs are hydrated to avoid an N+1 request
+        for unrelated jobs in the user's account.
+        """
+        wanted = set(uuids or ())
+        cached_at, cached = getattr(self, "_job_details_cache", (0.0, {}))
+        if time.monotonic() - cached_at < 10 and wanted.issubset(cached):
+            return cached
+        jobs = self._call(self.client.jobs.getJobList, listType="MY_JOBS", limit=limit)
+        details = {_get(j, "uuid"): {"status": _get(j, "status"), "condition": _get(j, "condition"),
+                                      "message": None, "remote_outcome": _get(j, "remoteOutcome"),
+                                      "remote_result_info": None}
+                   for j in jobs if _get(j, "uuid")}
+        for uuid in wanted:
+            summary = details.get(uuid, {})
+            if summary.get("status") not in {"FAILED", "CANCELLED"}:
+                continue
+            try:
+                job = self._call(self.client.jobs.getJob, jobUuid=uuid)
+            except TapisError:
+                continue
+            messages = list(dict.fromkeys(str(x).strip() for x in
+                            (_get(job, "lastMessage"), _get(job, "remoteResultInfo")) if x))
+            details[uuid] = {"status": _get(job, "status") or summary.get("status"),
+                             "condition": _get(job, "condition") or summary.get("condition"),
+                             "message": "\n".join(messages) or None,
+                             "remote_outcome": _get(job, "remoteOutcome"),
+                             "remote_result_info": _get(job, "remoteResultInfo")}
+        self._job_details_cache = (time.monotonic(), details)
+        return details
 
     def cancel_job(self, uuid):
         self._call(self.client.jobs.cancelJob, jobUuid=uuid)

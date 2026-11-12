@@ -15,11 +15,14 @@ from urllib.parse import urlsplit
 from fastapi import Body, Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse
 
-from .campaign import ACTIVE_CAMPAIGN_STATUSES, PROFILE_FILE_NAME, CampaignManager, CampaignStore, campaign_view, owner_of
+from .campaign import (ACTIVE_CAMPAIGN_STATUSES, PROFILE_FILE_NAME, CampaignManager, CampaignStore,
+                       campaign_view, is_status_check_error, owner_of)
 from .build import MODELS, TRAINING_SETS, BuildManager, build_view, standardize, to_csv
+from .job_errors import classify_job_failure
 from .plan import build_plan, harp_app, is_gpu, resolve_target
+from .queue_catalog import LiveQueueCatalog
 from .sweep import SpecError
-from .tapis_gateway import TapisError, TapisGateway
+from .tapis_gateway import TapisError, TapisGateway, login_error_message
 
 # The profiling page lives at the repository root.
 PROFILING_PAGE = os.environ.get(
@@ -29,6 +32,105 @@ MAX_PROFILE_ROWS = 5000
 # That page is a single file with inline script/style and Google Fonts.
 SESSION_COOKIE = "harp_session"
 LOCAL_CLIENTS = {"127.0.0.1", "::1", "localhost"}
+# Manually transcribed from OSC's current "Partition time and job size limits"
+# tables. HARP links to these references; it does not modify TAPIS definitions.
+OSC_PARTITION_CATALOGS = {
+    "ascend": {
+        "name": "Ascend",
+        "partitions": {"nextgen", "quad", "debug-nextgen", "debug-quad"},
+        "url": "https://www.osc.edu/book/export/html/6459",
+    },
+    "pitzer": {
+        "name": "Pitzer",
+        "partitions": {"cpu", "cpu-exp", "longcpu", "gpu", "gpu-exp", "gpu-quad",
+                       "debug-cpu", "debug-exp", "gpudebug", "gpudebug-exp", "hugemem", "largemem"},
+        "url": "https://www.osc.edu/resources/technical_support/supercomputers/pitzer/batch_limit_rules",
+    },
+    "cardinal": {
+        "name": "Cardinal",
+        "partitions": {"cpu", "longcpu", "cache", "gpu", "debug", "hugemem"},
+        "url": "https://www.osc.edu/resources/technical_support/supercomputers/cardinal/batch_limit_rules",
+    },
+}
+
+
+def _osc_catalog_entry(system):
+    """Identify an official OSC TAPIS system by ID or OSC execution host."""
+    system_id = str(system.get("id") or "").lower()
+    host = str(system.get("host") or "").lower().rstrip(".")
+    for key, catalog in OSC_PARTITION_CATALOGS.items():
+        if system_id == f"{key}-tapis" or host == f"{key}.osc.edu":
+            return key, catalog
+    return None
+
+
+def _osc_partition_catalog(system):
+    entry = _osc_catalog_entry(system)
+    return entry[1] if entry else None
+
+
+def _queue_availability(system, queue, live_catalog=None):
+    """Classify a TAPIS logical queue using live Slurm data when available."""
+    tapis_queue = (queue.get("name") or "default queue").strip()
+    partition = (queue.get("hpc_queue") or tapis_queue).strip()
+    if queue.get("configured_max_nodes") == 0:
+        return {"code": "invalid_tapis_configuration", "source": "tapis",
+                "detail": "This queue has been configured incorrectly on TAPIS."}
+    entry = _osc_catalog_entry(system)
+    if not entry:
+        return {"code": "unverified", "source": "tapis",
+                "detail": ("Tapis defines this logical queue, but HARP has no live scheduler "
+                           "check confirming that its HPC queue is available.")}
+    cluster, catalog = entry
+    snapshot = live_catalog.snapshot(cluster) if live_catalog else None
+    if not snapshot:
+        error = live_catalog.error(cluster) if live_catalog else "live probe is not configured"
+        return {"code": "unverified", "source": "documentation",
+                "detail": f"Live {catalog['name']} partition check unavailable: {error}."}
+    live_partition = snapshot["partitions"].get(partition)
+    if live_partition is None:
+        return {"code": "invalid_tapis_configuration", "source": "live_slurm",
+                "checked_at": snapshot["checked_at"],
+                "detail": (f"This queue maps to HPC queue {partition!r}, which is not in the live "
+                           f"{catalog['name']} Slurm partition list.")}
+    if not live_partition["available"]:
+        return {"code": "partition_unavailable", "source": "live_slurm",
+                "checked_at": snapshot["checked_at"],
+                "detail": f"HPC partition {partition!r} is currently unavailable on {catalog['name']}."}
+    return {"code": "available", "source": "live_slurm", "checked_at": snapshot["checked_at"],
+            "detail": f"HPC partition {partition!r} is available on {catalog['name']}."}
+
+
+def _queue_void_reason(system, queue, live_catalog=None):
+    """A HARP-only queue overlay. It never changes the TAPIS System."""
+    availability = _queue_availability(system, queue, live_catalog)
+    return availability["detail"] if availability["code"] in {
+        "invalid_tapis_configuration", "partition_unavailable"} else None
+
+
+def _decorate_queues(system, live_catalog=None):
+    for queue in system.get("queues") or []:
+        queue["gpu"] = is_gpu(queue)
+        availability = _queue_availability(system, queue, live_catalog)
+        queue["availability_code"] = availability["code"]
+        queue["availability_detail"] = availability["detail"]
+        queue["availability_source"] = availability["source"]
+        queue["void_reason"] = availability["detail"] if availability["code"] in {
+            "invalid_tapis_configuration", "partition_unavailable"} else None
+    entry = _osc_catalog_entry(system)
+    if entry:
+        cluster, catalog = entry
+        snapshot = live_catalog.snapshot(cluster) if live_catalog else None
+        if snapshot:
+            system["queue_reference"] = {"label": f"Live {catalog['name']} partitions",
+                                         "url": catalog["url"], "source": "live_slurm",
+                                         "checked_at": snapshot["checked_at"],
+                                         "partitions": sorted(snapshot["partitions"])}
+        else:
+            system["queue_reference"] = {
+                "label": f"{catalog['name']} documentation (not used for validation)",
+                "url": catalog["url"], "source": "documentation", "partitions": []}
+    return system
 
 
 def _origins(value):
@@ -69,7 +171,7 @@ def is_local(request: Request) -> bool:
 
 
 def create_app(data_dir=None, poll_interval=None, login=TapisGateway.login, start_poller=True, build_python=None,
-               portal_origins=None, tapis_base_url=None, session_same_site=None):
+               portal_origins=None, tapis_base_url=None, session_same_site=None, queue_catalog=None):
     data_dir = data_dir or os.environ.get("HARP_SERVER_DATA", os.path.expanduser("~/.harp_server"))
     poll_interval = poll_interval or int(os.environ.get("HARP_POLL_SECONDS", "15"))
     portal_origins = _origins(os.environ.get("HARP_PORTAL_ORIGINS", "")
@@ -96,18 +198,24 @@ def create_app(data_dir=None, poll_interval=None, login=TapisGateway.login, star
                      f"frame-ancestors {frame_ancestors}; form-action 'self'; base-uri 'none'")
     manager = CampaignManager(CampaignStore(data_dir), poll_interval=poll_interval)
     builds = BuildManager(data_dir, python=build_python)
+    queue_catalog = queue_catalog or LiveQueueCatalog.from_env(data_dir=data_dir)
     sessions = {}  # session token -> TapisGateway
 
     @asynccontextmanager
     async def lifespan(_app):
+        queue_catalog.start()
         if start_poller:
             manager.start()
-        yield
-        manager.stop()
+        try:
+            yield
+        finally:
+            manager.stop()
+            queue_catalog.stop()
 
     app = FastAPI(title="HARP sweep server", lifespan=lifespan)
     app.state.manager = manager
     app.state.builds = builds
+    app.state.queue_catalog = queue_catalog
     manager.tickers.append(builds.tick)
     allow_http = os.environ.get("HARP_ALLOW_HTTP") == "1"
 
@@ -160,7 +268,7 @@ def create_app(data_dir=None, poll_interval=None, login=TapisGateway.login, star
         try:
             gw = login(base_url, access_token=access_token)
         except TapisError as e:
-            raise HTTPException(401, str(e))
+            raise HTTPException(401, login_error_message(e))
         token = secrets.token_urlsafe(32)
         sessions[token] = gw
         manager.register_gateway(gw)
@@ -199,9 +307,27 @@ def create_app(data_dir=None, poll_interval=None, login=TapisGateway.login, star
         """Systems the user can run jobs on, each with its queues (TAPIS batchLogicalQueues)."""
         out = tapis(gw.exec_systems)
         for s in out:
-            for q in s.get("queues") or []:
-                q["gpu"] = is_gpu(q)
+            _decorate_queues(s, queue_catalog)
         return out
+
+    @app.get("/api/tapis/inventory")
+    def tapis_inventory(gw: TapisGateway = Depends(gateway)):
+        """All visible systems and execution systems from one TAPIS request."""
+        systems = tapis(gw.list_systems)
+        for s in systems:
+            _decorate_queues(s, queue_catalog)
+        return {"systems": systems, "exec_systems": [s for s in systems
+                                                     if s.get("can_exec") and s.get("enabled") is not False]}
+
+    @app.get("/api/tapis/queue-probe")
+    def queue_probe_status(_gw: TapisGateway = Depends(gateway)):
+        """Live OSC Slurm probe health without exposing SSH configuration."""
+        return queue_catalog.status()
+
+    @app.get("/api/tapis/systems/{system_id}/access")
+    def tapis_system_access(system_id: str, gw: TapisGateway = Depends(gateway)):
+        """Fresh page-load access check using the same `/` Files listing as TapisUI."""
+        return gw.check_system_access(system_id, refresh=True)
 
     @app.get("/api/tapis/apps")
     def apps(gw: TapisGateway = Depends(gateway)):
@@ -214,7 +340,8 @@ def create_app(data_dir=None, poll_interval=None, login=TapisGateway.login, star
             raise HTTPException(400, "send the plan as a JSON object")
         if not plan.get("sweeps"):
             raise HTTPException(400, "the plan has no sweeps")
-        return tapis(build_plan, plan, gw)
+        validator = lambda system, queue: _queue_void_reason(system, queue, queue_catalog)
+        return tapis(build_plan, plan, gw, validator)
 
     def checked(item):
         """A built sweep, also run through the campaign validator and splitter."""
@@ -255,7 +382,7 @@ def create_app(data_dir=None, poll_interval=None, login=TapisGateway.login, star
                 created.append(campaign_view(manager.create(b["spec"], gw), include_jobs=False))
             except TapisError as e:
                 raise HTTPException(502, f"TAPIS refused sweep {b['name']} after "
-                                         f"{len(created)} were submitted: {e}")
+                                    f"{len(created)} were submitted: {e}")
         return created
 
     @app.get("/api/jobs")
@@ -264,16 +391,31 @@ def create_app(data_dir=None, poll_interval=None, login=TapisGateway.login, star
         rows = []
         for c in manager.list(owner_of(gw)):
             target_of = {t["key"]: t for t in c["spec"]["targets"]}
+            active_by_target = {}
+            for candidate in c["jobs"]:
+                if candidate.get("uuid") and candidate["status"] not in {"FINISHED", "FAILED", "CANCELLED", "SUBMIT_FAILED"}:
+                    active_by_target[candidate["target"]] = active_by_target.get(candidate["target"], 0) + 1
             for j in c["jobs"]:
                 t = target_of.get(j["target"], {})
+                status_explanation = None
+                if j["status"] == "NOT_SUBMITTED":
+                    if c["status"] == "WAITING_FOR_LOGIN":
+                        status_explanation = "Waiting in HARP for you to log in again; no TAPIS job exists yet."
+                    else:
+                        active, limit = active_by_target.get(j["target"], 0), t.get("max_concurrent_jobs") or 1
+                        status_explanation = (f"Waiting in HARP for a target slot ({active} of {limit} active); "
+                                              "no TAPIS job exists yet." if active >= limit else
+                                              "Waiting for HARP's next submission pass; no TAPIS job exists yet.")
                 rows.append({"name": j["name"], "sweep": c["spec"]["name"], "sweep_id": c["id"],
                              "app_id": t.get("app_id"), "system_id": j["system_id"],
                              "queue": t.get("queue"), "cores_per_node": t.get("cores_per_node"),
-                             "memory_mb": t.get("memory_mb"), "run_type": j["run_type"],
+                             "memory_mb": t.get("memory_mb"), "gpus_per_node": t.get("gpus_per_node"),
+                             "run_type": j["run_type"],
                              "combinations": len(j["combinations"]), "status": j["status"],
                              "runs_total": len(j["combinations"]) * c["spec"]["repetitions"],
                              "progress": j.get("progress"),
                              "uuid": j["uuid"], "error": j["error"], "kind": "profiling",
+                             "status_explanation": status_explanation,
                              "submitted_at": j["submitted_at"], "ended_at": j["ended_at"]})
         for b in builds.list(owner_of(gw)):
             if not b.get("job"):
@@ -282,9 +424,34 @@ def create_app(data_dir=None, poll_interval=None, login=TapisGateway.login, star
             rows.append({"name": j["name"], "sweep": f"build {b['name']}", "sweep_id": None, "build_id": b["id"],
                          "app_id": b["app_id"], "system_id": j["system_id"], "queue": j.get("queue"),
                          "cores_per_node": w.get("cores_per_node"), "memory_mb": w.get("memory_mb"),
+                         "gpus_per_node": w.get("gpus_per_node"),
                          "run_type": "build", "combinations": 0, "status": j["status"], "runs_total": 0,
                          "progress": None, "uuid": j["uuid"], "error": b["error"] if b["status"] == "FAILED" else None,
                          "kind": "build", "submitted_at": j["submitted_at"], "ended_at": j.get("ended_at")})
+        # One list call enriches all local HARP jobs with TAPIS's terminal
+        # condition and message. If Jobs is temporarily unavailable, the local
+        # campaign table remains usable.
+        details = {}
+        local_uuids = {r["uuid"] for r in rows if r.get("uuid")}
+        if local_uuids:
+            try:
+                details = gw.list_job_details(local_uuids)
+            except TapisError:
+                pass
+        for row in rows:
+            detail = details.get(row.get("uuid"), {})
+            if detail.get("status"):
+                row["status"] = detail["status"]
+                if row["status"] in {"FINISHED", "FAILED", "CANCELLED"} and is_status_check_error(row.get("error")):
+                    row["error"] = None
+            message = detail.get("message") or row.get("error")
+            condition = detail.get("condition")
+            row["condition"] = condition
+            if row["status"] in {"FAILED", "SUBMIT_FAILED", "CANCELLED"}:
+                row["failure"] = classify_job_failure(row["status"], condition, message,
+                                                      row.get("system_id"), row.get("queue"))
+            else:
+                row["failure"] = None
         return rows
 
     @app.get("/api/campaigns")
@@ -436,17 +603,22 @@ def create_app(data_dir=None, poll_interval=None, login=TapisGateway.login, star
         if run_on.get("mode") == "tapis":
             build_app = next((a for a in apps if a["role"] == "build"), None)
             if build_app is None:
-                raise HTTPException(400, "no HARP build app in TAPIS yet: register it with the app notebook (APP = 'build')")
+                raise HTTPException(
+                    400, "no HARP build app in TAPIS yet: register it with the app notebook (APP = 'build')")
             try:
                 system = tapis(gw.get_system, run_on.get("system_id"))
                 q = next((x for x in system.get("queues") or [] if x.get("name") == run_on.get("queue")), {})
+                reason = _queue_void_reason(system, q, queue_catalog)
+                if reason:
+                    raise SpecError(reason)
                 cores = min(BUILD_CORES, q.get("max_cores") or BUILD_CORES)
                 t = resolve_target(system, run_on.get("queue"), {"cores": cores, "max_minutes": min(BUILD_MINUTES, q.get("max_minutes") or BUILD_MINUTES)},
                                    1, BUILD_MINUTES, 1, run_on.get("scheduler_options"))
             except SpecError as e:
                 raise HTTPException(400, str(e))
             where = {"mode": "tapis", "app_id": build_app["id"], "app_version": build_app["version"], **{
-                k: t[k] for k in ("system_id", "queue", "cores_per_node", "memory_mb", "max_minutes", "scheduler_options")}}
+                k: t[k] for k in ("system_id", "queue", "cores_per_node", "memory_mb", "max_minutes",
+                                  "scheduler_options", "gpus_per_node", "container_args")}}
         try:
             b = builds.start(owner_of(gw), app_id, label, body["sweeps"], header, table, report,
                              {"system_id": storage["system_id"], "path": storage["path"].strip()}, gw,
@@ -459,6 +631,74 @@ def create_app(data_dir=None, poll_interval=None, login=TapisGateway.login, star
     def list_builds(app_id: str = "", gw: TapisGateway = Depends(gateway)):
         return [build_view(b) for b in builds.list(owner_of(gw), app_id or None)]
 
+    @app.post("/api/estimates")
+    def estimate_runs(body: dict = Body(...), gw: TapisGateway = Depends(gateway)):
+        """Predict wall time for configured runs with explicitly selected HARP models."""
+        entries, selected = body.get("entries"), body.get("models")
+        if not isinstance(entries, list) or not entries or len(entries) > 100:
+            raise HTTPException(400, "add between 1 and 100 estimate entries")
+        if not isinstance(selected, dict):
+            raise HTTPException(400, "select a trained model for every app")
+
+        owner = owner_of(gw)
+        profile_cache, groups = {}, {}
+        for entry in entries:
+            app_id, values, targets = entry.get("app_id"), entry.get("values"), entry.get("targets")
+            choice = selected.get(app_id) if app_id else None
+            if not app_id or not isinstance(values, dict) or not isinstance(targets, list) or not targets:
+                raise HTTPException(400, "each estimate needs an app, values, and at least one target")
+            if not choice or not choice.get("build_id") or not choice.get("model"):
+                raise HTTPException(400, f"select a trained model for {app_id}")
+            build = builds.builds.get(choice["build_id"])
+            if not build or build.get("owner") != owner or build.get("app_id") != app_id:
+                raise HTTPException(404, f"trained model build not found for {app_id}")
+            if app_id not in profile_cache:
+                profile_cache[app_id] = app_rows(app_id, gw)[1]
+
+            key = (choice["build_id"], choice["model"])
+            group = groups.setdefault(key, {"features": [], "references": []})
+            for target_index, target in enumerate(targets):
+                system_id, queue = target.get("system_id"), target.get("queue")
+                hardware_key = system_id + (f"/{queue}" if queue else "")
+                reference = next((r for r in profile_cache[app_id]
+                                  if r.get("system") == system_id
+                                  and str(r.get("hardware", "")).split(" · ", 1)[0] == hardware_key), None)
+                if reference is None:
+                    raise HTTPException(400, f"No profiled hardware data exists for {hardware_key}; profile that partition first.")
+                feature_row = {}
+                for feature in build.get("report", {}).get("features", []):
+                    if feature == "sys_alloc_cores":
+                        value = target.get("cores") or 1
+                    elif feature == "sys_alloc_mem_mb":
+                        value = target.get("memory_mb") or (int(target.get("cores") or 1) * 4096)
+                    elif feature.startswith("run_"):
+                        value = values.get(feature[4:])
+                    else:
+                        value = reference.get(feature)
+                    if value is None or str(value).strip() == "":
+                        raise HTTPException(400, f"Cannot estimate {hardware_key}: feature {feature} is unavailable.")
+                    feature_row[feature] = value
+                group["features"].append(feature_row)
+                group["references"].append({"entry_id": entry.get("id"), "target_index": target_index,
+                                            "app_id": app_id, "system_id": system_id, "queue": queue})
+
+        results = []
+        for (build_id, model_name), group in groups.items():
+            try:
+                prediction = builds.estimate(owner, build_id, model_name, group["features"], gw)
+            except ValueError as e:
+                raise HTTPException(400, str(e))
+            except TapisError as e:
+                raise HTTPException(502, f"Could not read the selected model from TAPIS: {e}")
+            except RuntimeError as e:
+                raise HTTPException(500, f"Could not run the selected model: {e}")
+            metric = prediction["model"]
+            for reference, seconds in zip(group["references"], prediction["seconds"]):
+                results.append({**reference, "seconds": seconds, "build_id": build_id,
+                                "model": model_name, "model_type": metric["RegModel"],
+                                "adjust_factor": metric.get("ADJ_FACTOR") or 1})
+        return {"estimates": results}
+
     # ------------------------------------------------------------------ page
     @app.get("/")
     @app.get("/profiling")
@@ -466,7 +706,8 @@ def create_app(data_dir=None, poll_interval=None, login=TapisGateway.login, star
     def profiling_page():
         if not os.path.isfile(PROFILING_PAGE):
             raise HTTPException(404, "profiling.html not found")
-        return FileResponse(PROFILING_PAGE, headers={"Content-Security-Policy": profiling_csp})
+        return FileResponse(PROFILING_PAGE, headers={"Content-Security-Policy": profiling_csp,
+                                                     "Cache-Control": "no-store"})
 
     return app
 

@@ -14,6 +14,7 @@ class FakeGateway:
         self._ids = itertools.count(1)
         self.fail_submit_for = set()
         self.readonly_systems = set()
+        self.access_checks = []
         self.expires_at = None
 
     def expired(self, margin=60):
@@ -22,9 +23,7 @@ class FakeGateway:
 
     # systems / apps
     def list_systems(self):
-        return [{"id": "pitzer", "host": "pitzer.osc.edu", "system_type": "LINUX", "can_exec": True, "effective_user": "a"},
-                {"id": "stampede", "host": "stampede.tacc", "system_type": "LINUX", "can_exec": True, "effective_user": "a"},
-                {"id": "storage", "host": "data.osc.edu", "system_type": "LINUX", "can_exec": False, "effective_user": "a"}]
+        return [self.get_system("pitzer"), self.get_system("stampede"), self.get_system("storage")]
 
     QUEUES = {
         "pitzer": [{"name": "serial", "hpc_queue": "serial", "default": True, "max_nodes": 1, "max_cores": 40,
@@ -41,6 +40,8 @@ class FakeGateway:
         if system_id not in ("pitzer", "stampede", "storage"):
             raise TapisError(f"system {system_id} not found")
         return {"id": system_id, "host": "h", "can_exec": system_id != "storage", "enabled": True,
+                "access": {"system_id": system_id, "status": "unknown", "accessible": None,
+                           "checked_at": None, "error": None},
                 "default_queue": (self.QUEUES.get(system_id) or [{}])[0].get("name"),
                 "description": "", "system_type": "LINUX", "batch_scheduler": "SLURM", "runtimes": ["SINGULARITY"],
                 "queues": [dict(q) for q in self.QUEUES.get(system_id, [])],
@@ -48,6 +49,13 @@ class FakeGateway:
 
     def exec_systems(self):
         return [self.get_system(s["id"]) for s in self.list_systems() if s["can_exec"]]
+
+    def check_system_access(self, system_id, refresh=False):
+        self.access_checks.append((system_id, refresh))
+        accessible = system_id not in getattr(self, "inaccessible_systems", set())
+        return {"system_id": system_id, "status": "accessible" if accessible else "unavailable",
+                "accessible": accessible, "checked_at": "2026-10-30T00:00:00+00:00",
+                "error": None if accessible else "401 remote access failed"}
 
     def list_apps(self):
         return [{"id": "harp-sweep-euler", "version": "1.0.0", "image": "docker://x", "runtime": "SINGULARITY",
@@ -96,6 +104,11 @@ class FakeGateway:
 
     def job_status(self, uuid):
         return self.jobs[uuid]["status"]
+
+    def list_job_details(self, uuids=None, limit=1000):
+        return {uuid: {"status": j["status"], "condition": j.get("condition"),
+                       "message": j.get("message"), "remote_outcome": j.get("remote_outcome")}
+                for uuid, j in self.jobs.items() if not uuids or uuid in uuids}
 
     def cancel_job(self, uuid):
         self.jobs[uuid]["status"] = "CANCELLED"

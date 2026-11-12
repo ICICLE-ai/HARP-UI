@@ -15,27 +15,22 @@ TapisUI extension component that owns the iframe and token handoff.
 Tapis Pods deploys an OCI/Docker image; it does not deploy source code or a
 GitHub Release directly. Publishing a GitHub Release such as `v2.0.0` runs
 `.github/workflows/build-server-image.yml`, which builds, smoke-tests, and
-publishes `ghcr.io/manikyaswathi/harp-ui:2.0.0`. The workflow can also be dispatched
+publishes `ghcr.io/icicle-ai/harp-ui:<release-version>`. The workflow can also be dispatched
 manually for a release candidate. Pull requests build and test the image but
 do not push it.
 
-The initial image owner is `manikyaswathi`, matching this repository's current
-GitHub owner. If HARP moves to the ICICLE organization, publish the image as
-`ghcr.io/icicle-ai/harp-ui:<version>` and update the Pod image; the Pod ID,
-volume, endpoint, and TapisUI route do not need to change.
-
-<!-- > **Repository transfer TODO:** after the move, update repository links in
-> `README.md` and `component-info.yaml`, confirm the catalog owner and dependency
-> metadata, publish a versioned `ghcr.io/icicle-ai/harp-ui` image, ask the Pods
-> administrator to allowlist that exact image, and register a new immutable
-> template tag that references it. Do not overwrite the existing `harp:2.0.0`
-> template tag. -->
+The official public image is `ghcr.io/icicle-ai/harp-ui:2.0.0` ([package
+page](https://github.com/ICICLE-ai/HARP-UI/pkgs/container/harp-ui)). Its published
+digest is `sha256:512660d0d1eb856edbea0c91929b774c62d99b26ebcc2bdac8985e4c3d3fa588`.
+The image namespace is allowlisted for the `icicleai` tenant. The original
+`harp:2.0.0` template remains available for rollback because it references the
+legacy image; new deployments use `harp:2.0.0-icicle.1`.
 
 From the repository root:
 
 ```bash
-docker build -f harp_server/Dockerfile -t ghcr.io/manikyaswathi/harp-ui:2.0.0 .
-docker push ghcr.io/manikyaswathi/harp-ui:2.0.0
+docker build -f harp_server/Dockerfile -t ghcr.io/icicle-ai/harp-ui:<version> .
+docker push ghcr.io/icicle-ai/harp-ui:<version>
 ```
 
 Make the GHCR package public/readable by the Pods cluster. A Pods administrator
@@ -65,21 +60,47 @@ a Pod restart.
 The deployment resources are split along the same boundary as the Pods API:
 
 - `template-harp.json` creates the shared `harp` template.
-- `template-tag-harp-2.0.0.json` adds immutable version `harp:2.0.0` with the
-  image, runtime configuration, volume mount, networking, and resource limits.
+- `template-tag-harp-2.0.0.json` is the original immutable template revision
+  backed by the pre-transfer image and is retained for rollback.
+- `template-tag-harp-2.0.0-icicle.1.json` adds the current immutable revision
+  `harp:2.0.0-icicle.1`, backed by `ghcr.io/icicle-ai/harp-ui:2.0.0`.
 - `pod-harp-from-template.json` creates the small `harp` instance from that
   versioned template and supplies its concrete `harpdata` volume ID. The
   reusable template keeps the volume source as a required placeholder because
   Tapis Pods does not permit literal tenant volume IDs in template tags.
 
-The additive deployment helper creates missing resources and never replaces or
-deletes existing ones. From the repository root:
+By default, the deployment helper creates missing resources but refuses to
+replace an existing Pod. From the repository root:
 
 ```bash
 export TAPIS_BASE_URL=https://icicleai.tapis.io
 export TAPIS_ACCESS_TOKEN='<token>'
-export HARP_IMAGE=ghcr.io/manikyaswathi/harp-ui:2.0.0
+export HARP_IMAGE=ghcr.io/icicle-ai/harp-ui:2.0.0
+export HARP_TEMPLATE_TAG=2.0.0-icicle.1
 python deploy/deploy_pod.py
+```
+
+The Pods update API cannot change the image or template of an existing Pod. To
+migrate the existing `harp` Pod, opt in to a brief stop/delete/recreate cycle:
+
+```bash
+python deploy/deploy_pod.py --replace-existing-pod
+```
+
+The helper verifies that `/var/lib/harp` is backed by `harpdata` before
+replacement. It deletes only the Pod, never the persistent volume, then
+recreates Pod ID `harp` from the new template. The endpoint therefore remains
+`https://harp.pods.icicleai.tapis.io`. Any Pod-specific permissions must be
+reapplied after recreation.
+
+PowerShell equivalent:
+
+```powershell
+$env:TAPIS_BASE_URL = "https://icicleai.tapis.io"
+$env:TAPIS_ACCESS_TOKEN = "<token>"
+$env:HARP_IMAGE = "ghcr.io/icicle-ai/harp-ui:2.0.0"
+$env:HARP_TEMPLATE_TAG = "2.0.0-icicle.1"
+python deploy/deploy_pod.py --replace-existing-pod
 ```
 
 Username/password authentication is also supported:
@@ -87,7 +108,10 @@ Username/password authentication is also supported:
 ```bash
 export TAPIS_USERNAME='<username>'
 export TAPIS_PASSWORD='<password>'
-python deploy/deploy_pod.py --image ghcr.io/manikyaswathi/harp-ui:2.0.0
+python deploy/deploy_pod.py \
+  --image ghcr.io/icicle-ai/harp-ui:2.0.0 \
+  --template-tag 2.0.0-icicle.1 \
+  --replace-existing-pod
 ```
 
 Credentials are read from the process environment and are not written to a
@@ -105,6 +129,61 @@ Verify:
 curl https://harp.pods.icicleai.tapis.io/healthz
 # {"status":"ok"}
 ```
+
+### Optional: live OSC queue validation
+
+OSC documentation is retained as a reference, but it is not used to disable
+queues. HARP can instead SSH to Ascend, Pitzer, and Cardinal and refresh
+`sinfo --all --noheader --format='%P|%a|%t'` at Pod startup and once every 24 hours.
+
+Before configuring Pod secrets, run the same implementation locally without
+printing or copying either credential file:
+
+```powershell
+& .\harp_server\scripts\test_queue_probe.ps1 `
+  -OscUser '<osc-username>' `
+  -SshKeyPath 'C:\Users\you\.ssh\id_ed25519' `
+  -KnownHostsPath 'C:\Users\you\.ssh\known_hosts'
+```
+
+Add `-StartServer` after the one-shot check succeeds to launch local HARP with
+the daily probe configuration. The script restores the calling process's prior
+HARP environment when it exits.
+
+Create two user-owned Tapis Secrets:
+
+- `osc_ssh_private_key`: a noninteractive OSC SSH private key authorized for
+  the Pod owner's OSC account.
+- `osc_known_hosts`: pinned, independently verified host-key entries for
+  `ascend.osc.edu`, `pitzer.osc.edu`, and `cardinal.osc.edu`.
+
+Then recreate the Pod with the secret names—not their values—in the deployment
+environment:
+
+```bash
+export HARP_OSC_SSH_USER='<osc-username>'
+export HARP_OSC_SSH_KEY_SECRET='osc_ssh_private_key'
+export HARP_OSC_KNOWN_HOSTS_SECRET='osc_known_hosts'
+export HARP_QUEUE_REFRESH_SECONDS=86400
+export HARP_QUEUE_MAX_AGE_SECONDS=172800
+python deploy/deploy_pod.py --replace-existing-pod
+```
+
+The script uses the Pods `secret_map`, mounts the key as mode `0600`, mounts
+`known_hosts` as mode `0644`, and enables strict host-key checking. It does not
+put either secret value in the Pod definition or repository. If probing fails
+or a snapshot becomes stale, OSC queues are marked `not live-checked` and stay
+selectable; stale documentation never voids them. A queue is disabled only
+when TAPIS has an invalid queue definition, the live Slurm list lacks its
+mapped partition, or Slurm reports that partition unavailable.
+
+Each successful probe is also written to
+`$HARP_SERVER_DATA/osc_queue_catalog.json`. In the Pod this is on the existing
+`harpdata` persistent volume, so a restart can immediately reuse the last
+snapshot while the startup refresh runs. The cached file contains only cluster
+hosts, partition states, and timestamps; it never contains the SSH key, JWT, or
+other credentials. A cached snapshot is ignored after
+`HARP_QUEUE_MAX_AGE_SECONDS` (48 hours by default).
 
 ## 4. Portal configuration
 
