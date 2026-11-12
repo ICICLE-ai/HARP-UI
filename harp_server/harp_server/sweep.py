@@ -10,6 +10,7 @@ import string
 RUN_TYPES = ("SD", "FS", "test_data")
 DISTRIBUTIONS = ("split", "replicate")
 NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
+TAPIS_JOB_NAME_MAX = 64
 
 
 class SpecError(ValueError):
@@ -116,8 +117,13 @@ def plan_jobs(spec: dict) -> list:
         assignments = [(chunk, next(cycle)) for chunk in chunks]
 
     for n, (chunk, target) in enumerate(assignments):
+        suffix = f"-{chunk[0]['run_type']}-{n:04d}"
+        # TAPIS validates the generated job name separately from the sweep
+        # name. Keep the run type and sequence suffix, which make jobs easy to
+        # identify and unique, and trim only the user-controlled sweep prefix.
+        job_name = f"{spec['name'][:TAPIS_JOB_NAME_MAX - len(suffix)]}{suffix}"
         jobs.append({
-            "name": f"{spec['name']}-{chunk[0]['run_type']}-{n:04d}",
+            "name": job_name,
             "target": target["key"],
             "system_id": target["system_id"],
             "run_type": chunk[0]["run_type"],

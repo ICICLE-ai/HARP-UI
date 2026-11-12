@@ -47,6 +47,18 @@ def test_spec_decoding_accepts_urlsafe_base64_without_padding():
     assert harp_job_runner.decode_spec(encoded)["job_name"] == "euler-SD-0000"
 
 
+def test_system_details_tolerates_an_unavailable_swap_counter(monkeypatch):
+    import psutil
+
+    def unavailable():
+        raise RuntimeError("performance counters are disabled")
+
+    monkeypatch.setattr(psutil, "swap_memory", unavailable)
+    details = harp_job_runner.system_details()
+    assert details["sys_swap_mem_bytes"] == 0
+    assert details["sys_tot_cores_count"]
+
+
 def test_main_exit_code_reflects_whether_anything_was_profiled(tmp_path, monkeypatch):
     monkeypatch.setattr(harp_job_runner, "output_dir", lambda: str(tmp_path))
     bad = _spec(combinations=[{"index": 0, "run_type": "SD", "parameters": {"method": "x", "n": 1, "precision": 1}}])

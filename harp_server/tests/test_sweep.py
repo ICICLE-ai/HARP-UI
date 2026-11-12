@@ -40,6 +40,15 @@ def test_replicate_runs_every_chunk_on_every_target():
     assert summary["total_runs"] == 28
 
 
+def test_generated_job_names_fit_the_tapis_limit():
+    spec = validate_spec(euler_spec(name="s" * 64, distribution="replicate"))
+    jobs = plan_jobs(spec)
+
+    assert all(len(job["name"]) <= 64 for job in jobs)
+    assert any(job["name"].endswith("-test_data-0007") for job in jobs)
+    assert len({job["name"] for job in jobs}) == len(jobs)
+
+
 @pytest.mark.parametrize("change, message", [
     ({"name": "bad name!"}, "name"),
     ({"command": ""}, "command"),

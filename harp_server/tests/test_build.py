@@ -10,7 +10,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from harp_server.app import create_app
-from harp_server.build import build_name, standardize, wait_for
+from harp_server.build import BuildManager, build_name, standardize, wait_for
+from harp_server.tapis_gateway import TapisError
 from fake_tapis import FakeGateway
 from specs import euler_spec
 
@@ -126,6 +127,15 @@ def test_build_runs_the_harp_pipeline_and_saves_models_to_tapis(ctx):
     assert any(p.endswith(".pkl") for p in uploaded) and any(p.endswith(".h5") for p in uploaded)
     listed = client.get("/api/builds", params={"app_id": "harp-sweep-euler"}).json()
     assert listed[0]["id"] == b["id"] and listed[0]["status"] == "DONE"
+    model = next(m for m in done["metrics"] if m["RegModel"] == "DTR" and m["ADJ_FACTOR"] == 1)
+    estimate = client.post("/api/estimates", json={
+        "entries": [{"id": 1, "app_id": "harp-sweep-euler", "values": {"method": "pow", "n": "8000"},
+                     "targets": [{"system_id": "pitzer", "queue": "serial", "cores": 40, "memory_mb": 163840}]}],
+        "models": {"harp-sweep-euler": {"build_id": done["id"], "model": model["MODEL_NAME"]}},
+    })
+    assert estimate.status_code == 200, estimate.text
+    prediction = estimate.json()["estimates"][0]
+    assert prediction["seconds"] > 0 and prediction["entry_id"] == 1 and prediction["target_index"] == 0
 
 
 BUILD_APP = {"id": "harp-build-alice", "version": "1.0.0", "image": "docker://ghcr.io/x/harp-build:1.0.0",
@@ -190,6 +200,54 @@ def test_build_runs_as_a_tapis_job_with_the_build_app(ctx, tmp_path):
         assert len(done["metrics"]) == 8 and any(f.endswith(".pkl") for f in done["files"])
     job = next(j for j in client.get("/api/jobs").json() if j["kind"] == "build")
     assert job["status"] == "FINISHED" and job["system_id"] == "pitzer"
+
+
+def test_tapis_gpu_build_requests_scheduler_and_container_gpu(tmp_path):
+    gw = FakeGateway("alice")
+    manager = BuildManager(str(tmp_path))
+    b = {
+        "id": "gpu12345", "name": "gpu-build", "models": ["LR"], "training_sets": ["SD"],
+        "storage": {"system_id": "storage", "path": "/scratch/models"},
+        "dest": "/scratch/models/builds/gpu-build", "dataset_file": "training.csv",
+        "where": {"mode": "tapis", "app_id": "harp-build-alice", "app_version": "1.0.0",
+                  "system_id": "pitzer", "queue": "gpuserial", "cores_per_node": 4,
+                  "memory_mb": 16384, "max_minutes": 60, "scheduler_options": "-A PAS2271",
+                  "gpus_per_node": 1, "container_args": "--nv"},
+    }
+    manager._submit(b, gw, b"run_config,run_type,walltime\na,SD,1\n")
+    req = gw.jobs[b["job"]["uuid"]]["request"]
+    assert req["parameterSet"]["schedulerOptions"] == [
+        {"arg": "-A PAS2271"}, {"arg": "--gpus-per-node=1"}
+    ]
+    assert req["parameterSet"]["containerArgs"] == [{"arg": "--nv"}]
+
+
+def test_tapis_build_successful_repoll_clears_transient_error(tmp_path):
+    gw = FakeGateway("alice")
+    manager = BuildManager(str(tmp_path))
+    b = {
+        "id": "poll1234", "owner": "alice", "name": "poll-build", "models": ["LR"],
+        "training_sets": ["SD"], "status": "QUEUED", "error": None,
+        "storage": {"system_id": "storage", "path": "/scratch/models"},
+        "dest": "/scratch/models/builds/poll-build", "dataset_file": "training.csv",
+        "where": {"mode": "tapis", "app_id": "harp-build-alice", "app_version": "1.0.0",
+                  "system_id": "pitzer", "queue": "serial", "cores_per_node": 4,
+                  "memory_mb": 16384, "max_minutes": 60, "scheduler_options": "-A PAS2271"},
+    }
+    manager._submit(b, gw, b"run_config,run_type,walltime\na,SD,1\n")
+    manager.builds[b["id"]] = b
+    original_status = gw.job_status
+
+    def failed_status(_uuid):
+        raise TapisError("connection aborted")
+
+    gw.job_status = failed_status
+    manager.tick({"alice": gw})
+    assert b["error"] == "status check failed: connection aborted"
+    gw.job_status = original_status
+    gw.jobs[b["job"]["uuid"]]["status"] = "RUNNING"
+    manager.tick({"alice": gw})
+    assert b["status"] == "RUNNING" and b["error"] is None
 
 
 def test_failed_build_job_reports_why(ctx):
