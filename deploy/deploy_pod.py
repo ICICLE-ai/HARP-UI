@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import urlparse
 
+import requests
 from tapipy.errors import BaseTapyException
 from tapipy.tapis import Tapis
 
@@ -77,12 +78,66 @@ def value(resource: Any, name: str, default: Any = None) -> Any:
     return getattr(resource, name, default)
 
 
+def _access_token(client: Tapis) -> str:
+    token = value(getattr(client, "access_token", None), "access_token")
+    if not token:
+        raise SystemExit("The Tapis client has no access token for the Pods request")
+    return token
+
+
+def create_pod_current(client: Tapis, definition: dict[str, Any], timeout: int) -> Any:
+    """Create a Pod without letting an older Tapipy schema strip new fields.
+
+    The current Pods API supports ``secret_map`` and ephemeral mount fields such
+    as ``config_content``. Tapipy's bundled Pods schema can lag the live service
+    and silently remove those fields. Send the validated definition through the
+    authenticated session directly and retry while a recently deleted Pod is
+    still being cleaned up by the backend.
+    """
+    url = f"{client.base_url.rstrip('/')}/v3/pods"
+    deadline = time.monotonic() + timeout
+    last_error = ""
+    while time.monotonic() < deadline:
+        try:
+            response = client.requests_session.post(
+                url,
+                headers={"X-Tapis-Token": _access_token(client), "Accept": "application/json"},
+                json=definition,
+                timeout=30,
+                verify=client.verify,
+            )
+        except requests.RequestException as error:
+            last_error = str(error)
+            time.sleep(10)
+            continue
+        if response.ok:
+            payload = response.json() if response.content else {}
+            return payload.get("result", payload)
+        try:
+            last_error = str(response.json().get("message") or response.reason)
+        except Exception:
+            last_error = response.reason
+        if response.status_code not in {409, 500, 502, 503, 504}:
+            raise SystemExit(
+                f"Pods API rejected Pod {definition.get('pod_id')}: "
+                f"HTTP {response.status_code}: {last_error}"
+            )
+        time.sleep(10)
+    raise SystemExit(
+        f"Pods API did not create Pod {definition.get('pod_id')} before timeout: {last_error}"
+    )
+
+
 def wait_for_status(
     client: Tapis, pod_id: str, expected_status: str, timeout: int
 ) -> None:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        pod = client.pods.get_pod(pod_id=pod_id)
+        try:
+            pod = client.pods.get_pod(pod_id=pod_id)
+        except BaseTapyException:
+            time.sleep(5)
+            continue
         status = value(pod, "status", "UNKNOWN")
         if status == expected_status:
             return
@@ -97,8 +152,11 @@ def wait_for_status(
 def wait_for_absent(client: Tapis, pod_id: str, timeout: int) -> None:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        if get_or_none(client.pods.get_pod, pod_id=pod_id) is None:
-            return
+        try:
+            if get_or_none(client.pods.get_pod, pod_id=pod_id) is None:
+                return
+        except BaseTapyException:
+            pass
         time.sleep(5)
     raise SystemExit(f"Pod {pod_id} was not deleted within {timeout} seconds")
 
@@ -204,7 +262,7 @@ def create_resources(
 
     pod = get_or_none(client.pods.get_pod, pod_id=pod_id)
     if pod is None:
-        pod = client.pods.create_pod(**pod_definition)
+        pod = create_pod_current(client, pod_definition, timeout)
         print(f"Created Pod {pod_id} from {target_template}")
     else:
         current_template = str(value(pod, "template", "")).split("@", 1)[0]
@@ -237,7 +295,7 @@ def create_resources(
             )
             client.pods.delete_pod(pod_id=pod_id)
             wait_for_absent(client, pod_id, timeout)
-            pod = client.pods.create_pod(**pod_definition)
+            pod = create_pod_current(client, pod_definition, timeout)
             print(f"Recreated Pod {pod_id} from {target_template}")
 
     hostname = urlparse(client.base_url).hostname
@@ -248,7 +306,11 @@ def wait_for_pod(client: Tapis, pod_id: str, endpoint: str, timeout: int) -> Non
     deadline = time.monotonic() + timeout
     last_status = None
     while time.monotonic() < deadline:
-        pod = client.pods.get_pod(pod_id=pod_id)
+        try:
+            pod = client.pods.get_pod(pod_id=pod_id)
+        except BaseTapyException:
+            time.sleep(5)
+            continue
         status = value(pod, "status", "UNKNOWN")
         if status != last_status:
             print(f"Pod status: {status}")
