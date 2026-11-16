@@ -12,7 +12,7 @@
   status: "PrototypeRelease"
   description: "HARP profiles scientific applications across HPC systems, trains regression models from execution history, and predicts runtime and resource needs. Its Tapis-backed sweep service distributes profiling jobs across systems and exposes the workflow through a browser interface."
   componentVersion: "2.1.0"
-  targetIcicleRelease: "2026-10"
+  targetIcicleRelease: "2026-11"
   licenseUrl: "https://github.com/ICICLE-ai/HARP-UI?tab=BSD-3-Clause-1-ov-file"
   publicAccess: true
   sourceCodeUrl: "https://github.com/ICICLE-ai/HARP-UI"
