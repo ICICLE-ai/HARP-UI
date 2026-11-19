@@ -322,7 +322,7 @@
       b.status = 'DONE'; b.ended_at = new Date().toISOString();
       b.metrics = fakeMetrics(b.seed).filter(m => b.models.includes(m.RegModel) && b.training_sets.includes(m.DataSet));
       b.best = [...b.metrics].sort((x, y) => x.MAPE - y.MAPE)[0];
-      b.files = [b.dataset_file, 'pipeline_config.json', 'full_dataset_pca.csv', 'model_commons.csv', ...b.metrics.map(m => 'models/' + m.MODEL_NAME + (m.RegModel === 'NN' ? '.h5' : '.pkl'))];
+      b.files = [b.dataset_file, 'pipeline_config.json', 'full_dataset_pca.csv', 'model_commons.csv', ...b.metrics.map(m => 'models/' + m.MODEL_NAME + (m.RegModel === 'NN' ? '.keras' : '.skops'))];
     } else if (b.status !== 'DONE') b.status = 'RUNNING';
     return b;
   }
@@ -355,8 +355,8 @@
     let body = {}; try { body = opts.body ? JSON.parse(opts.body) : {}; } catch (e) {}
     const me = getMe();
     if (path === '/api/login') {
-      if (!body.username || !body.password) return later(json(400, {detail:'Enter your TAPIS username and password.'}));
-      const u = {username:body.username, base_url:body.base_url || 'https://icicle.tapis.io', expires_at:null};
+      if (!body.access_token) return later(json(400, {detail:'Enter any nonempty demo token.'}));
+      const u = {username:'demo-user', base_url:body.base_url || 'https://icicleai.tapis.io', expires_at:null};
       setMe(u); return later(json(200, u));
     }
     if (path === '/api/logout') { setMe(null); return Promise.resolve(json(200, {ok:true})); }

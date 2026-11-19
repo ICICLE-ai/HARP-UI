@@ -11,6 +11,8 @@ name: Build HARP sweep image
 
 on:
   push:
+    branches:
+      - main
     paths:
       - "job_runner/**"
       - "examples/01-eulers_number/**"
@@ -153,7 +155,7 @@ jobs:
           docker run --rm --network none -v "$PWD/in:/TapisInput" -v "$PWD/out:/TapisOutput" "${{ steps.names.outputs.ghcr }}:${IMAGE_TAG}" "$spec"
           cat out/model_commons.csv
           ls out/models
-          test "$(ls out/models/*.pkl | wc -l)" -eq 8
+          test "$(ls out/models/*.skops | wc -l)" -eq 8
 
       - name: Push to GitHub Container Registry
         run: |

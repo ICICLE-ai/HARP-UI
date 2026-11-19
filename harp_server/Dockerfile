@@ -6,7 +6,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     HARP_BEHIND_PROXY=1 \
     HARP_HOST=0.0.0.0 \
     HARP_PORT=8000 \
-    HARP_PROXY_IPS=* \
     HARP_SERVER_DATA=/var/lib/harp
 
 WORKDIR /opt/harp
@@ -27,9 +26,13 @@ COPY harp_server /opt/harp/harp_server
 COPY job_runner /opt/harp/job_runner
 COPY pipeline /opt/harp/pipeline
 
-RUN mkdir -p /var/lib/harp
+RUN groupadd --system harp \
+    && useradd --system --gid harp --create-home --home-dir /home/harp harp \
+    && mkdir -p /var/lib/harp \
+    && chown harp:harp /var/lib/harp
 
 WORKDIR /opt/harp/harp_server
+USER harp
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \

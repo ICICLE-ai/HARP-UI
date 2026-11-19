@@ -2,7 +2,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from harp_server.app import _decorate_queues, create_app
+from harp_server.app import _decorate_queues, _tapis_tenant_origin, create_app
 from harp_server.tapis_gateway import TapisError, login_error_message
 from fake_tapis import FakeGateway
 from specs import euler_spec
@@ -52,6 +52,25 @@ def test_requires_login(ctx):
     assert client.post("/api/login", json={"base_url": "http://insecure", "access_token": "token-a"}).status_code == 400
 
 
+@pytest.mark.parametrize("url, expected", [
+    ("https://icicleai.tapis.io", "https://icicleai.tapis.io"),
+    ("https://TACC.tapis.io/", "https://tacc.tapis.io"),
+    ("https://tenant.tapis.io:443", "https://tenant.tapis.io"),
+])
+def test_tapis_tenant_accepts_https_tapis_subdomains(url, expected):
+    assert _tapis_tenant_origin(url) == expected
+
+
+@pytest.mark.parametrize("url", [
+    "http://tenant.tapis.io", "https://tapis.io", "https://tapis.io.attacker.example",
+    "https://tenant.tapis.io.attacker.example", "https://user@tenant.tapis.io",
+    "https://tenant.tapis.io:8443", "https://tenant.tapis.io/a/path",
+])
+def test_tapis_tenant_rejects_non_tenant_urls(url):
+    with pytest.raises(ValueError, match="TAPIS tenant"):
+        _tapis_tenant_origin(url)
+
+
 def test_nested_tapipy_login_errors_are_concise():
     nested = ("TAPIS login failed: message: Unable to retrieve sites and tenants from the Tenants API. "
               "e: message: Invalid Tapis token.")
@@ -88,6 +107,16 @@ def test_tokens_are_refused_over_plain_http_from_other_hosts(ctx):
     r = local.post("/api/login", json=creds)
     assert r.status_code == 200
     assert "secure" not in r.headers["set-cookie"].lower()  # dev on localhost
+
+
+def test_cross_site_state_changes_are_rejected(ctx):
+    client, _, _ = ctx
+    same = {"origin": "https://testserver"}
+    credentials = {"base_url": "https://fake.tapis.io", "access_token": "token-alice"}
+    assert client.post("/api/login", json=credentials, headers=same).status_code == 200
+    assert client.post("/api/logout", headers={"origin": "https://attacker.example"}).status_code == 403
+    assert client.post("/api/logout", headers={"sec-fetch-site": "cross-site"}).status_code == 403
+    assert client.post("/api/logout", headers=same).status_code == 200
 
 
 def test_security_headers(ctx):
@@ -179,7 +208,7 @@ def test_profiling_page_is_served_with_its_own_csp(ctx):
     assert 'name="username"' not in r.text and 'name="password"' not in r.text
     assert 'id="sysShowUnavailable"' in r.text and 'id="reviewShowUnavailable"' in r.text
     assert 'id="eShowUnavailable"' in r.text
-    assert "queue-status" in r.text and "label: 'CHECKING'" in r.text
+    assert "queue-status" in r.text and "label: 'UNCHECKED'" in r.text
     assert "function renderBuildDestinations()" in r.text
     assert "accessTimer = setTimeout(refreshSystemAccess, 750)" in r.text
     assert "invalid_tapis_configuration" in r.text and "partition_unavailable" in r.text

@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import re, os, math, copy, pickle
+import re, os, math, copy
 from datetime import datetime
 
 from sklearn.linear_model import LinearRegression

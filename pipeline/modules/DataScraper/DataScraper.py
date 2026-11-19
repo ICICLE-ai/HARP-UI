@@ -2,7 +2,6 @@ from PipelineModule import PipelineModule
 
 import os
 import re
-import pickle
 import pandas as pd
 
 PIPELINE_HOME_VAR = "PIPELINE_HOME"
@@ -35,17 +34,15 @@ class DataScraper(PipelineModule):
 
 
     def scrape_dnns(self):
-        dfs = []
         regex = re.compile('dnn_tmp_[0-9]+.pkl')
         tmp_files_path = os.getenv(PIPELINE_HOME_VAR)
-        for file_name in os.listdir(tmp_files_path):
-            if regex.search(file_name) != None:
-                with open(os.path.join(tmp_files_path, file_name), "rb") as file:
-                    data = pickle.load(file)
-                    dfs.append(dnn_scrape(data))
-
-        df = pd.concat(dfs)
-        return df
+        legacy = [name for name in os.listdir(tmp_files_path) if regex.fullmatch(name)]
+        if legacy:
+            raise RuntimeError(
+                "legacy DNN scrape pickle files are not loaded because pickle can execute code; "
+                "regenerate this profiling data in a non-pickle format"
+            )
+        raise RuntimeError("no supported DNN scrape data was found")
         
 
     def finalize(self):

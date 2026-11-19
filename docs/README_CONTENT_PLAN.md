@@ -8,9 +8,9 @@ This authoring checklist tracks the work needed to keep HARP's repository README
 |---|---|---|---|
 | Product summary | Detailed technical overview | Short outcome-oriented introduction | Keep the overview; tighten after maintainers confirm final positioning |
 | Try-before-use path | Offline demo mentioned in one sentence | Tutorial with prerequisites, steps, and expected result | Added |
-| Hosted onboarding | URL and token flow only | Explicit prerequisites, authentication behavior, and expected screen | Added; TapisUI screenshot waits for integration approval |
+| Hosted onboarding | URL and token flow only | Explicit prerequisites, authentication behavior, and expected screen | Added; no deployment-specific screenshot required |
 | First workflow | Seven compressed steps | Small safe first run with observable results at every stage | Expanded |
-| Screenshots | Existing assets largely show legacy UI or conceptual diagrams | Current screenshot beside the action it explains | Slots added; current images intentionally not reused |
+| Screenshots | Existing assets largely show legacy UI or conceptual diagrams | Current screenshot beside the action it explains | Current tutorial captures added; optional administrative captures dropped |
 | Troubleshooting | Primarily deployment-oriented | Symptom → meaning → recovery tables for users | Added for common Tapis and Slurm failures |
 | Expected outcomes | Mostly implicit | Every tutorial ends with an expected result | Added |
 | Operator reference | Strong but mixed with user tasks | User tutorials in the root; detailed deployment/API reference linked separately | Existing `harp_server/README.md` and `deploy/README.md` remain the operator references |
@@ -19,13 +19,11 @@ The comparison was based on the public documentation patterns used by ICICLE's I
 
 ## Screenshot inventory
 
-Create images under `docs/images/` using the filenames already referenced by `README.md`.
+The maintained tutorial images under `docs/images/` are referenced by `README.md`.
 
 | Filename | Required state |
 |---|---|
 | `tutorial-offline-overview.png` | Offline demo after login with Generate, Build, and Estimate visible |
-| `tutorial-hosted-service.png` | Hosted HARP after authentication |
-| `tutorial-tapisui-service.png` | HARP in TapisUI Services without a second login prompt |
 | `tutorial-local-login.png` | Local login page with an empty token field |
 | `tutorial-generate-configure-sd.png` | SD sweep with list values `1, 2` and one repetition |
 | `tutorial-generate-targets-sd-ascend.png` | Two available Ascend partitions and scheduler options |
@@ -44,13 +42,19 @@ Create images under `docs/images/` using the filenames already referenced by `RE
 | `tutorial-estimate-select-model.png` | Best completed model selected |
 | `tutorial-estimate-generating.png` | Estimate request in progress |
 | `tutorial-estimate-result.png` | Rendered runtime prediction |
-| `howto-system-queue-status.png` | System access/status indicators and logical queue labels |
-| `howto-failure-details.png` | Failure category summary and expanded error |
-| `howto-results-location.png` | Campaign result path and resulting profile view |
-| `howto-resume-session.png` | Sweep before and after session recovery |
-| `howto-register-sweep-app.png` | Tapis sweep app metadata and `notes.harp` configuration |
-| `howto-pod-deployment.png` | Healthy HARP Pod/template and approved image reference |
-| `explanation-harp-pipeline.png` | Current Generate → Build → Estimate architecture and data flow |
+
+## How to produce and refresh screenshots
+
+Rebuild the offline demo first with `python3 DEMO/ui/build_demo.py`. Use a
+1440-pixel-wide Playwright/Chromium viewport and capture the application rather
+than browser chrome. The repository does not currently contain a checked-in
+screenshot automation script, so login and tab selection must be selected
+during the capture run.
+
+| Slots | What must be run or opened |
+|---|---|
+| `tutorial-offline-overview.png` | Open `DEMO/ui/profiling.html`, enter any nonempty demo token, and capture the application overview. |
+| `tutorial-local-login.png` | Run `harp_server/scripts/run_local.sh`, open `http://localhost:8000`, and capture the empty login form. |
 
 ## Screenshot rules
 
@@ -62,7 +66,7 @@ Create images under `docs/images/` using the filenames already referenced by `RE
 - Capture unannotated source screenshots first. Add red boxes or callouts only to copies, so the originals remain reusable.
 - Name highlighted copies with an `-annotated.png` suffix; keep the clean filename for the source capture.
 - Add descriptive alt text explaining what the reader should notice.
-- Replace the visible screenshot-slot callout in `README.md` with standard Markdown once the image exists:
+- Embed maintained screenshots in `README.md` with standard Markdown:
 
   ```markdown
   ![HARP review page showing three ready profiling sweeps](images/tutorial-generate-review.png)

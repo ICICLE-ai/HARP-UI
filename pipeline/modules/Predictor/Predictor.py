@@ -2,7 +2,7 @@ from PipelineModule import PipelineModule
 
 import pandas as pd
 import numpy as np
-import os, pickle, re,  math, copy
+import os, re,  math, copy
 from datetime import datetime
 
 
@@ -18,6 +18,9 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, mean_absolu
 from sklearn.model_selection import train_test_split 
 from sklearn import metrics 
 from sklearn.utils import shuffle
+from sklearn.linear_model import LinearRegression
+from sklearn.tree import DecisionTreeRegressor
+import skops.io as sio
 
 from .RegressionMetrics import get_scores
 
@@ -28,6 +31,7 @@ REG_MODELS = ["LR", "NN", "DTR"]
 DS_COFIG = ["SD", "SD+25FS", "SD+50FS", "SD+75FS"]
 
 PRINT_RESULT=True
+SKOPS_TRUSTED_TYPES = {"LR": set(), "DTR": {"sklearn.tree._tree.Tree"}}
 
 
 class Predictor():
@@ -116,16 +120,21 @@ class Predictor():
         model_name = self.model
         load_model = None
         loaded_model = None
-        if self.modelType == "LR" or self.modelType == "DTR": #h5 or pkl
-            print("I AM HERE")
-            load_model = models_home + self.model + ".pkl"
-            loaded_model = pickle.load(open(load_model, 'rb'))
+        if self.modelType == "LR" or self.modelType == "DTR":
+            load_model = models_home + self.model + ".skops"
+            untrusted = set(sio.get_untrusted_types(file=load_model))
+            unexpected = untrusted - SKOPS_TRUSTED_TYPES[self.modelType]
+            if unexpected:
+                raise RuntimeError("model contains unapproved serialized types: " + ", ".join(sorted(unexpected)))
+            loaded_model = sio.load(load_model, trusted=sorted(untrusted))
+            expected = LinearRegression if self.modelType == "LR" else DecisionTreeRegressor
+            if type(loaded_model) is not expected:
+                raise RuntimeError(f"expected {expected.__name__}, got {type(loaded_model).__name__}")
         elif self.modelType == "NN":
-            load_model = models_home + self.model + ".h5"
-            loaded_model = tf.keras.models.load_model(load_model)
+            load_model = models_home + self.model + ".keras"
+            loaded_model = tf.keras.models.load_model(load_model, compile=False, safe_mode=True)
         else:
-            load_model = models_home + self.model + ".h5"
-            loaded_model = tf.keras.models.load_model(load_model)
+            raise RuntimeError(f"unsupported model type {self.modelType!r}")
         
         
         X_pca, y_pca = self.get_train_X_y(self.test)

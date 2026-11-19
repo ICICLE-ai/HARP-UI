@@ -74,7 +74,7 @@ which is the name the existing **build** phase looks for. Runs that fail go to
    Open `https://<server-hostname>:8443`. For a server other people use, get a real
    certificate (from your institution or Let's Encrypt) and point `HARP_SSL_CERT` / `HARP_SSL_KEY`
    at it. If HTTPS is handled by nginx, Caddy or Apache in front of the server, run
-   `HARP_BEHIND_PROXY=1 HARP_PORT=8000 python3 -m harp_server.serve` and have the proxy forward
+   `HARP_BEHIND_PROXY=1 HARP_PROXY_IPS=<proxy-ip-or-cidr> HARP_PORT=8000 python3 -m harp_server.serve` and have the proxy forward
    to port 8000 with an `X-Forwarded-Proto` header.
 
    The server refuses logins over plain `http://` except from `localhost` (for development).
@@ -83,10 +83,11 @@ which is the name the existing **build** phase looks for. Runs that fail go to
    Environment variables:
    - `HARP_SSL_CERT`, `HARP_SSL_KEY`: certificate and key (PEM).
    - `HARP_HOST`, `HARP_PORT`: address to listen on. Default `0.0.0.0:8443`.
+   - `HARP_PROXY_IPS`: exact proxy IP or CIDR allowed to supply forwarded headers. Default `127.0.0.1`.
    - `HARP_ALLOW_HTTP=1`: accept logins over plain HTTP. Never use this on a shared server.
    - `HARP_SERVER_DATA`: where campaign state is kept. Default `~/.harp_server`.
    - `HARP_POLL_SECONDS`: how often the server polls TAPIS. Default `15`.
-   - `HARP_TAPIS_BASE_URL`: tenant used for TapisUI token handoff. Default `https://icicleai.tapis.io`.
+   - `HARP_TAPIS_BASE_URL`: default tenant used for TapisUI token handoff. Login accepts HTTPS subdomains of `tapis.io`.
    - `HARP_PORTAL_ORIGINS`: exact comma-separated TapisUI origins allowed to frame HARP and hand off a token.
      When unset, framing remains disabled.
    - `HARP_SESSION_SAME_SITE`: session-cookie policy (`strict`, `lax` or `none`). Use `none` for the hosted iframe.
@@ -106,11 +107,11 @@ page, `profiling.html` (repository root), with three main tabs, each with its ow
 
 | Main tab | Sub-tabs |
 |---|---|
-| **HARP Generate** | 1 Configure: pick a Tapis app, set up SD / FS / test_data sweeps, tick available systems and queues, request cores/memory/time for the one node used by each job, and enter each system's scheduler options (for example `-A PAS2271`). Unavailable systems and queues are hidden unless **Show unavailable** is enabled. **Add to plan** warns before continuing when a selected system has no allocation. 2 Review & submit: validate every sweep, choose the archive/results location, confirm, and submit the plan all-or-nothing. 3 Profiled data: inspect and export successful timing rows. 4 Jobs: poll profiling and build jobs, inspect concise failure categories and sanitized raw details, and cancel a sweep. |
+| **HARP Generate** | 1 Configure: pick a Tapis app, set up SD / FS / test_data sweeps, tick available systems and queues, request cores/memory/time for the one node used by each job, and enter each system's scheduler options (for example `-A PAS2271`). Unavailable systems and queues are hidden unless **Show unavailable** is enabled. **Add to plan** warns before continuing when a selected system has no allocation. 2 Review & submit: validate every sweep, choose the archive/results location, confirm, and submit the plan all-or-nothing. 3 Jobs: poll profiling and build jobs, inspect concise failure categories and sanitized raw details, and cancel a sweep. 4 Profiled data: inspect and export successful timing rows. |
 | **HARP Build** | 1 Training data: pick the app and the sweeps to learn from (data checks folded away). 2 Models & where: models and training sets, where the build runs (a TAPIS system as a job of the HARP build app, or this computer) and where the models are saved. 3 Trained models: every build with its best model and scores. |
 | **HARP Estimate** | 1 Configure: pick an app, give one value per parameter (one run), tick the queues and cores it would get, add it to the estimate list (the model's independent examples). 2 Select model: per app, its trained models best first; the best is preselected. 3 Estimates: apply the selected saved models and compare predicted run times. A target partition must have successful profiling data so HARP can supply its measured hardware features. |
 
-At startup the independent Apps, Systems, Campaigns, and Jobs requests run together. System access badges transition from **CHECKING** to **AVAILABLE** or **UNAVAILABLE** in the background, and Build destinations populate from inventory without waiting for profile CSV downloads. Short-lived client/server caches and in-flight request reuse prevent repeated tab changes from re-downloading the same data. The login screen returns when the Tapis session expires.
+At startup the independent Apps, Systems, Campaigns, and Jobs requests run together. System access badges transition from **CHECKING** to **AVAILABLE** or **UNAVAILABLE** in the background. Queue badges use **UNCHECKED** when no live scheduler validator is configured, rather than implying a check is still running. Build destinations populate from inventory without waiting for profile CSV downloads. Short-lived client/server caches and in-flight request reuse prevent repeated tab changes from re-downloading the same data. The login screen returns when the Tapis session expires.
 
 The **?** buttons explain the terms: SD (scaled-down), FS (full-scale) and test_data runs; sweeps and campaigns (one
 submitted sweep is one campaign: the server's record of its TAPIS jobs and its results folder); the models; the
@@ -152,7 +153,7 @@ job ends it reads the archived `harp_job_summary.json` for the final count. The 
 Either way `job_runner/harp_build_runner.py` runs the pipeline's own build modules (`pipeline/modules/pipeline.py`:
 `data_preprocessor` = outliers, scaling, PCA; `model_trainer`), and the results land in
 `<folder>/builds/<app>_<timestamp>/`: the training CSV, `full_dataset_pca.csv`, `model_commons.csv` (every score),
-`models/<model>_<training set>_<padded yes/no>_<time>.pkl|.h5` and `harp_build_summary.json`. As a TAPIS job the
+`models/<model>_<training set>_<padded yes/no>_<time>.skops|.keras` and `harp_build_summary.json`. As a TAPIS job the
 server stages the training CSV as a file input (`<folder>/builds/.../input/`), TAPIS archives the job's output folder
 there, and the job shows in **Jobs** as a build job. **Trained models** lists each build with its best model and
 scores (average error and how often it predicts too low, on the test_data runs).

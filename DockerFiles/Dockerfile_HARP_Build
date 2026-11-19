@@ -7,7 +7,7 @@
 FROM python:3.11-slim
 
 # pandas < 3: the pipeline's preprocessor relies on in-place column replace
-RUN pip3 install --no-cache-dir "pandas>=2,<3" scikit-learn tensorflow-cpu h5py
+RUN pip3 install --no-cache-dir "pandas>=2,<3" "scikit-learn>=1.2,<2" "skops>=0.16,<0.17" "tensorflow-cpu>=2.13,<3"
 
 ADD pipeline /opt/harp/pipeline
 ADD job_runner/harp_build_runner.py /opt/harp/harp_build_runner.py

@@ -24,7 +24,7 @@ page](https://github.com/ICICLE-ai/HARP-UI/pkgs/container/harp-ui)). Its publish
 digest is `sha256:512660d0d1eb856edbea0c91929b774c62d99b26ebcc2bdac8985e4c3d3fa588`.
 The image namespace is allowlisted for the `icicleai` tenant. The original
 `harp:2.0.0` template remains available for rollback because it references the
-legacy image; new deployments use `harp:2.0.0-icicle.1`.
+legacy image; new deployments use `harp:2.0.0-icicle.2`.
 
 From the repository root:
 
@@ -62,8 +62,9 @@ The deployment resources are split along the same boundary as the Pods API:
 - `template-harp.json` creates the shared `harp` template.
 - `template-tag-harp-2.0.0.json` is the original immutable template revision
   backed by the pre-transfer image and is retained for rollback.
-- `template-tag-harp-2.0.0-icicle.1.json` adds the current immutable revision
-  `harp:2.0.0-icicle.1`, backed by `ghcr.io/icicle-ai/harp-ui:2.0.0`.
+- `template-tag-harp-2.0.0-icicle.2.json` adds the current immutable revision
+  `harp:2.0.0-icicle.2`, backed by `ghcr.io/icicle-ai/harp-ui:2.0.0`, and trusts
+  only the verified ICICLE Traefik peer (`10.233.98.5`) for forwarded HTTPS.
 - `pod-harp-from-template.json` creates the small `harp` instance from that
   versioned template and supplies its concrete `harpdata` volume ID. The
   reusable template keeps the volume source as a required placeholder because
@@ -76,7 +77,7 @@ replace an existing Pod. From the repository root:
 export TAPIS_BASE_URL=https://icicleai.tapis.io
 export TAPIS_ACCESS_TOKEN='<token>'
 export HARP_IMAGE=ghcr.io/icicle-ai/harp-ui:2.0.0
-export HARP_TEMPLATE_TAG=2.0.0-icicle.1
+export HARP_TEMPLATE_TAG=2.0.0-icicle.2
 python deploy/deploy_pod.py
 ```
 
@@ -99,7 +100,7 @@ PowerShell equivalent:
 $env:TAPIS_BASE_URL = "https://icicleai.tapis.io"
 $env:TAPIS_ACCESS_TOKEN = "<token>"
 $env:HARP_IMAGE = "ghcr.io/icicle-ai/harp-ui:2.0.0"
-$env:HARP_TEMPLATE_TAG = "2.0.0-icicle.1"
+$env:HARP_TEMPLATE_TAG = "2.0.0-icicle.2"
 python deploy/deploy_pod.py --replace-existing-pod
 ```
 
@@ -110,7 +111,7 @@ export TAPIS_USERNAME='<username>'
 export TAPIS_PASSWORD='<password>'
 python deploy/deploy_pod.py \
   --image ghcr.io/icicle-ai/harp-ui:2.0.0 \
-  --template-tag 2.0.0-icicle.1 \
+  --template-tag 2.0.0-icicle.2 \
   --replace-existing-pod
 ```
 
@@ -196,6 +197,15 @@ Production settings in the manifest:
 | `HARP_SESSION_SAME_SITE` | `none` permits the secure session cookie in an iframe. |
 | `HARP_SERVER_DATA` | Mounted persistent-state directory. |
 | `HARP_PROXY_IPS` | Proxies whose forwarded HTTPS headers Uvicorn trusts. |
+
+`HARP_PROXY_IPS` defaults to `127.0.0.1`; the container and Pod templates do
+not trust every sender. Set it to the exact ingress/reverse-proxy IP or CIDR
+used by the deployment. Login fails closed if forwarded HTTPS headers arrive
+from an untrusted address.
+
+HARP accepts tenant URLs only when they are HTTPS subdomains of `tapis.io`
+(for example, `https://icicleai.tapis.io` or `https://tacc.tapis.io`). It does
+not accept lookalike suffixes, URL credentials, paths, or nonstandard ports.
 
 The production template permits only `https://icicleai.tapis.io`. To exercise
 the extension from the standard local TapisUI development server, create a

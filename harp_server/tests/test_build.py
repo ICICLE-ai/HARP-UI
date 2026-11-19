@@ -1,5 +1,6 @@
 """Build phase from the page: pool sweeps -> standardize -> HARP pipeline build -> TAPIS."""
 import base64
+import hashlib
 import json
 import os
 import random
@@ -124,7 +125,8 @@ def test_build_runs_the_harp_pipeline_and_saves_models_to_tapis(ctx):
     assert done["best"]["MAPE"] is not None
     uploaded = {p for (s, p) in gw.files if s == "storage" and p.startswith(done["dest"])}
     assert f"{done['dest']}/model_commons.csv" in uploaded and f"{done['dest']}/{done['dataset_file']}" in uploaded
-    assert any(p.endswith(".pkl") for p in uploaded) and any(p.endswith(".h5") for p in uploaded)
+    assert any(p.endswith(".skops") for p in uploaded) and any(p.endswith(".keras") for p in uploaded)
+    assert done["artifact_manifest"]
     listed = client.get("/api/builds", params={"app_id": "harp-sweep-euler"}).json()
     assert listed[0]["id"] == b["id"] and listed[0]["status"] == "DONE"
     model = next(m for m in done["metrics"] if m["RegModel"] == "DTR" and m["ADJ_FACTOR"] == 1)
@@ -185,9 +187,14 @@ def test_build_runs_as_a_tapis_job_with_the_build_app(ctx, tmp_path):
                                "--output", str(out)], capture_output=True).returncode == 0
     else:
         (out / "models").mkdir(parents=True)
-        (out / "model_commons.csv").write_text("DataSet,RegModel,ADJ_FACTOR,MSE,MAE,MAPE,UPP,UP_MAPE,OV_MAPE,MODEL_NAME\n"
-                                               "SD,LR,1.0,0.1,0.2,12.5,40,10,10,LR_SD_no\n")
-        (out / "harp_build_summary.json").write_text(json.dumps({"ok": True, "files": ["model_commons.csv"]}))
+        metrics = ("DataSet,RegModel,ADJ_FACTOR,MSE,MAE,MAPE,UPP,UP_MAPE,OV_MAPE,MODEL_NAME\n"
+                   "SD,LR,1.0,0.1,0.2,12.5,40,10,10,LR_SD_no\n")
+        (out / "model_commons.csv").write_text(metrics)
+        raw = (out / "model_commons.csv").read_bytes()
+        (out / "harp_build_summary.json").write_text(json.dumps({
+            "ok": True, "files": ["model_commons.csv"],
+            "artifact_manifest": {"model_commons.csv": {"sha256": hashlib.sha256(raw).hexdigest(), "size": len(raw)}}
+        }))
     for f in out.rglob("*"):
         if f.is_file():
             gw.files[("storage", f"{b['dest']}/{f.relative_to(out)}")] = f.read_bytes()
@@ -197,7 +204,7 @@ def test_build_runs_as_a_tapis_job_with_the_build_app(ctx, tmp_path):
     assert done["status"] == "DONE", done["error"]
     assert done["best"]["MAPE"] is not None and {m["RegModel"] for m in done["metrics"]} <= {"LR", "DTR"}
     if py:
-        assert len(done["metrics"]) == 8 and any(f.endswith(".pkl") for f in done["files"])
+        assert len(done["metrics"]) == 8 and any(f.endswith(".skops") for f in done["files"])
     job = next(j for j in client.get("/api/jobs").json() if j["kind"] == "build")
     assert job["status"] == "FINISHED" and job["system_id"] == "pitzer"
 

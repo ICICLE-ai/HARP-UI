@@ -1,6 +1,6 @@
 # Offline demo of the HARP profiling page
 
-Open `profiling.html` in a browser. No server or TAPIS is needed: log in with any username and password.
+Open `profiling.html` in a browser. No server or TAPIS is needed: enter any nonempty value in the access-token field.
 It runs on sample apps, systems, sweeps and data (`demo_mock.js`).
 
 It is a copy of `../../profiling.html` with the sample data built in. After changing the real page, rebuild it:

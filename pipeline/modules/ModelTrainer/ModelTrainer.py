@@ -1,13 +1,14 @@
 from PipelineModule import PipelineModule
 
 import pandas as pd
-import os, pickle, re
+import os, re
 from datetime import datetime
 
 from sklearn.metrics import mean_squared_error, mean_absolute_error, mean_absolute_percentage_error
 from sklearn.model_selection import train_test_split # Import train_test_split function
 from sklearn import metrics #Import scikit-learn metrics module for accuracy calculation
 from sklearn.utils import shuffle
+import skops.io as sio
 
 
 from .RegressionModels import decision_tree_regressor, neural_net, linear_regression, get_adjust_factor
@@ -51,11 +52,11 @@ class ModelTrainer(PipelineModule):
             lr_regex = re.compile('^LR_*')
             dtr_regex = re.compile('^DTR_*')
             dnn_regex = re.compile('^NN_*')
-            if lr_regex.search(k) or dtr_regex.search(k): #save scikit-learn model
-                file = model_path+'.pkl'
-                pickle.dump(v, open(file, "wb"))
+            if lr_regex.search(k) or dtr_regex.search(k): # save scikit-learn model without pickle
+                file = model_path+'.skops'
+                sio.dump(v, file)
             elif dnn_regex.search(k): # tensorflow model
-                file = model_path+'.h5'
+                file = model_path+'.keras'
                 v.save(file)
                 
                 
