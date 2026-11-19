@@ -1,4 +1,6 @@
 import json
+import os
+import stat
 import subprocess
 
 from harp_server.queue_catalog import LiveQueueCatalog, parse_sinfo
@@ -30,6 +32,7 @@ def test_live_catalog_uses_strict_noninteractive_ssh_and_caches_result(tmp_path)
     assert snapshot["partitions"]["quad"]["available"] is False
     argv, kwargs = calls[0]
     assert "BatchMode=yes" in argv and "PasswordAuthentication=no" in argv
+    assert "IdentityAgent=none" in argv and "IdentitiesOnly=yes" in argv
     assert "StrictHostKeyChecking=yes" in argv and "sinfo --all" in argv[-1]
     assert kwargs["timeout"] == 15 and kwargs["check"] is False
 
@@ -48,6 +51,22 @@ def test_environment_defaults_refresh_daily_and_keep_snapshot_for_two_days(monke
     catalog = LiveQueueCatalog.from_env()
     assert catalog.refresh_seconds == 86400
     assert catalog.max_age_seconds == 172800
+
+
+def test_environment_stages_read_only_mounted_key_as_private_copy(monkeypatch, tmp_path):
+    source = tmp_path / "mounted_key"
+    source.write_bytes(b"private material\n")
+    source.chmod(0o444)
+    monkeypatch.setenv("HARP_OSC_QUEUE_PROBE", "1")
+    monkeypatch.setenv("HARP_OSC_SSH_KEY", str(source))
+
+    catalog = LiveQueueCatalog.from_env(data_dir=str(tmp_path))
+
+    assert catalog.key_path != str(source)
+    with open(catalog.key_path, "rb") as stream:
+        assert stream.read() == b"private material\n"
+    if os.name != "nt":
+        assert stat.S_IMODE(os.stat(catalog.key_path).st_mode) == 0o600
 
 
 def test_live_snapshot_survives_restart_without_storing_credentials(tmp_path):

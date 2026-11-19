@@ -1,8 +1,12 @@
 """Live OSC Slurm partition discovery through a non-interactive SSH probe."""
 
+import atexit
 import json
 import os
+import shutil
+import stat
 import subprocess
+import tempfile
 import threading
 import time
 from datetime import datetime, timezone
@@ -15,6 +19,38 @@ OSC_HOSTS = {
 }
 
 CACHE_FILENAME = "osc_queue_catalog.json"
+
+
+def stage_private_key(key_path):
+    """Copy a readable mounted key into a process-private 0600 temporary file.
+
+    Tapis ephemeral config files are mounted as ``root:root`` and expose only a
+    permissions setting, not an owner setting. A non-root HARP process cannot
+    read a root-owned 0600 mount, while OpenSSH refuses a directly mounted key
+    that is readable by other users. The Pod therefore mounts the source
+    read-only, and HARP immediately stages it in a 0700 temporary directory.
+    """
+    if not key_path or not os.path.isfile(key_path) or not os.access(key_path, os.R_OK):
+        return key_path
+    try:
+        if stat.S_IMODE(os.stat(key_path).st_mode) & 0o077 == 0:
+            return key_path
+    except OSError:
+        return key_path
+
+    runtime_dir = tempfile.mkdtemp(prefix="harp-osc-key-")
+    runtime_key = os.path.join(runtime_dir, "id_osc")
+    try:
+        os.chmod(runtime_dir, 0o700)
+        descriptor = os.open(runtime_key, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with open(key_path, "rb") as source, os.fdopen(descriptor, "wb") as target:
+            shutil.copyfileobj(source, target)
+        os.chmod(runtime_key, 0o600)
+    except Exception:
+        shutil.rmtree(runtime_dir, ignore_errors=True)
+        raise
+    atexit.register(shutil.rmtree, runtime_dir, ignore_errors=True)
+    return runtime_key
 
 
 def parse_sinfo(output):
@@ -73,10 +109,13 @@ class LiveQueueCatalog:
         if not cache_path:
             state_dir = data_dir or os.environ.get("HARP_SERVER_DATA") or os.path.expanduser("~/.harp_server")
             cache_path = os.path.join(state_dir, CACHE_FILENAME)
+        key_path = os.environ.get("HARP_OSC_SSH_KEY")
+        if enabled:
+            key_path = stage_private_key(key_path)
         return cls(
             enabled=enabled,
             username=os.environ.get("HARP_OSC_SSH_USER"),
-            key_path=os.environ.get("HARP_OSC_SSH_KEY"),
+            key_path=key_path,
             known_hosts=os.environ.get("HARP_OSC_SSH_KNOWN_HOSTS"),
             refresh_seconds=os.environ.get("HARP_QUEUE_REFRESH_SECONDS", "86400"),
             max_age_seconds=os.environ.get("HARP_QUEUE_MAX_AGE_SECONDS", "172800"),
@@ -148,6 +187,8 @@ class LiveQueueCatalog:
             return "HARP_OSC_SSH_USER is not set"
         if not self.key_path or not os.path.isfile(self.key_path):
             return "HARP_OSC_SSH_KEY does not name a mounted key file"
+        if not os.access(self.key_path, os.R_OK):
+            return "HARP_OSC_SSH_KEY is not readable by the HARP service user"
         if not self.known_hosts or not os.path.isfile(self.known_hosts):
             return "HARP_OSC_SSH_KNOWN_HOSTS does not name a mounted known_hosts file"
         return None
@@ -155,6 +196,7 @@ class LiveQueueCatalog:
     def _argv(self, host):
         return [
             "ssh", "-o", "BatchMode=yes", "-o", "PasswordAuthentication=no",
+            "-o", "IdentityAgent=none", "-o", "IdentitiesOnly=yes",
             "-o", "StrictHostKeyChecking=yes", "-o", f"ConnectTimeout={self.timeout_seconds}",
             "-o", f"UserKnownHostsFile={self.known_hosts}", "-i", self.key_path,
             f"{self.username}@{host}",

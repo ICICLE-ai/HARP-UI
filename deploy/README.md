@@ -170,9 +170,12 @@ export HARP_QUEUE_MAX_AGE_SECONDS=172800
 python deploy/deploy_pod.py --replace-existing-pod
 ```
 
-The script uses the Pods `secret_map`, mounts the key as mode `0600`, mounts
-`known_hosts` as mode `0644`, and enables strict host-key checking. It does not
-put either secret value in the Pod definition or repository. If probing fails
+The script uses the Pods `secret_map` and mounts both source files read-only.
+Because Tapis owns ephemeral config mounts as `root`, the non-root HARP process
+immediately copies the key into a process-private temporary directory as mode
+`0600`; OpenSSH uses only that private copy. `known_hosts` remains mode `0644`
+and strict host-key checking is enabled. The script does not put either secret
+value in the Pod definition or repository. If probing fails
 or a snapshot becomes stale, OSC queues are marked `not live-checked` and stay
 selectable; stale documentation never voids them. A queue is disabled only
 when TAPIS has an invalid queue definition, the live Slurm list lacks its
