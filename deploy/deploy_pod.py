@@ -27,8 +27,8 @@ from tapipy.tapis import Tapis
 DEPLOY_DIR = Path(__file__).resolve().parent
 DEFAULT_BASE_URL = "https://icicleai.tapis.io"
 DEFAULT_IMAGE = "ghcr.io/icicle-ai/harp-ui:2.0.0"
-DEFAULT_TEMPLATE_TAG = "2.0.0-icicle.1"
-TEMPLATE_TAG_DEFINITION = "template-tag-harp-2.0.0-icicle.1.json"
+DEFAULT_TEMPLATE_TAG = "2.0.0-icicle.2"
+TEMPLATE_TAG_DEFINITION = "template-tag-harp-2.0.0-icicle.2.json"
 
 
 def load_json(filename: str) -> dict[str, Any]:

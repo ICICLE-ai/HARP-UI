@@ -13,7 +13,7 @@ from contextlib import asynccontextmanager
 from urllib.parse import urlsplit
 
 from fastapi import Body, Depends, FastAPI, HTTPException, Request, Response
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from .campaign import (ACTIVE_CAMPAIGN_STATUSES, PROFILE_FILE_NAME, CampaignManager, CampaignStore,
                        campaign_view, is_status_check_error, owner_of)
@@ -153,6 +153,40 @@ def _origins(value):
     return out
 
 
+def _tapis_tenant_origin(value):
+    """Return a normalized HTTPS origin for a tenant below tapis.io."""
+    raw = str(value or "").strip().rstrip("/")
+    parsed = urlsplit(raw)
+    host = (parsed.hostname or "").lower().rstrip(".")
+    if (parsed.scheme != "https" or not host.endswith(".tapis.io") or host == "tapis.io" or
+            parsed.path or parsed.query or parsed.fragment or parsed.username or parsed.password or
+            parsed.port not in {None, 443}):
+        raise ValueError("TAPIS tenant must be an https://<tenant>.tapis.io URL")
+    return f"https://{host}"
+
+
+def _same_origin_request(request):
+    """Reject browser state changes initiated by a different web origin."""
+    if request.method not in {"POST", "PUT", "PATCH", "DELETE"}:
+        return True
+    if request.headers.get("sec-fetch-site", "").lower() == "cross-site":
+        return False
+    supplied = request.headers.get("origin")
+    if not supplied:
+        referer = request.headers.get("referer")
+        if referer:
+            parsed = urlsplit(referer)
+            supplied = f"{parsed.scheme}://{parsed.netloc}"
+    if not supplied:  # Non-browser API clients do not always send either header.
+        return True
+    try:
+        parsed = urlsplit(supplied)
+        supplied_origin = f"{parsed.scheme}://{parsed.netloc}"
+    except ValueError:
+        return False
+    return supplied_origin == f"{request.url.scheme}://{request.url.netloc}"
+
+
 def _same_site(value):
     value = str(value or "strict").strip().lower()
     if value not in {"strict", "lax", "none"}:
@@ -176,10 +210,8 @@ def create_app(data_dir=None, poll_interval=None, login=TapisGateway.login, star
     poll_interval = poll_interval or int(os.environ.get("HARP_POLL_SECONDS", "15"))
     portal_origins = _origins(os.environ.get("HARP_PORTAL_ORIGINS", "")
                               if portal_origins is None else portal_origins)
-    tapis_base_url = (tapis_base_url or os.environ.get("HARP_TAPIS_BASE_URL") or
-                      "https://icicleai.tapis.io").strip().rstrip("/")
-    if not tapis_base_url.startswith("https://"):
-        raise ValueError("HARP_TAPIS_BASE_URL must be an https URL")
+    tapis_base_url = _tapis_tenant_origin(tapis_base_url or os.environ.get("HARP_TAPIS_BASE_URL") or
+                                          "https://icicleai.tapis.io")
     session_same_site = _same_site(os.environ.get("HARP_SESSION_SAME_SITE", "strict")
                                    if session_same_site is None else session_same_site)
     frame_ancestors = "'self' " + " ".join(portal_origins) if portal_origins else "'none'"
@@ -221,6 +253,9 @@ def create_app(data_dir=None, poll_interval=None, login=TapisGateway.login, star
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next):
+        if not _same_origin_request(request):
+            return JSONResponse({"detail": "cross-site request rejected"}, status_code=403,
+                                headers=response_security_headers)
         response = await call_next(request)
         for name, value in response_security_headers.items():
             if name not in response.headers:  # a route may set a stricter/looser one
@@ -259,9 +294,10 @@ def create_app(data_dir=None, poll_interval=None, login=TapisGateway.login, star
         """Validate a TAPIS JWT and keep it behind an HttpOnly HARP session."""
         if not (is_https(request) or is_local(request) or allow_http):
             raise HTTPException(403, "log in over https:// - tokens are never accepted over plain http")
-        base_url = (body.get("base_url") or "").strip().rstrip("/")
-        if not base_url.startswith("https://"):
-            raise HTTPException(400, "base_url must be an https TAPIS tenant URL, e.g. https://icicleai.tapis.io")
+        try:
+            base_url = _tapis_tenant_origin(body.get("base_url"))
+        except ValueError as e:
+            raise HTTPException(400, str(e))
         access_token = (body.get("access_token") or "").strip()
         if not access_token:
             raise HTTPException(400, "enter a TAPIS access token")

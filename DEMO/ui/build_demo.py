@@ -15,7 +15,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 
 BANNER = '''<div class="demo-bar" role="note">
-  <b>Demo</b> &middot; Sample data, not connected to TAPIS. Log in with any username and password.
+  <b>Demo</b> &middot; Sample data, not connected to TAPIS. Enter any nonempty demo token.
 </div>
 <div class="toast" id="demoToast" role="status"></div>
 '''
@@ -29,10 +29,10 @@ STYLE = '''<style>
 
 
 def build(name):
-    page = open(os.path.join(ROOT, name)).read()
-    mock = open(os.path.join(HERE, "demo_mock.js")).read()
+    page = open(os.path.join(ROOT, name), encoding="utf-8").read()
+    mock = open(os.path.join(HERE, "demo_mock.js"), encoding="utf-8").read()
     # the TAPIS systems the demo shows: an export of real system definitions (replace the file to update them)
-    with open(os.path.join(HERE, "systems.json")) as f:
+    with open(os.path.join(HERE, "systems.json"), encoding="utf-8") as f:
         systems = f.read()
     mock = "window.__HARP_SYSTEMS__ = " + systems.strip() + ";\n" + mock
     assert page.count("<body>") == 1 and page.count("</head>") == 1
@@ -40,7 +40,7 @@ def build(name):
     page = page.replace("<body>", "<body>\n" + BANNER, 1)
     page = page.replace("<title>", "<title>Demo: ", 1)
     out = os.path.join(HERE, name)
-    with open(out, "w") as f:
+    with open(out, "w", encoding="utf-8") as f:
         f.write(page)
     print("wrote", os.path.relpath(out, ROOT))
 

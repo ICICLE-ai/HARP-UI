@@ -68,13 +68,13 @@ Use this tutorial to understand the interface before using a cluster. The offlin
 ### Steps
 
 1. Open [`DEMO/ui/profiling.html`](DEMO/ui/profiling.html) in a browser.
-2. Enter any username and password on the demo login screen. These values stay in the demo and are not sent anywhere.
+2. Enter any nonempty value in the demo access-token field. It stays in the demo and is not sent anywhere.
 3. Use the top-level navigation to inspect **HARP Generate**, **HARP Build**, and **HARP Estimate**.
 4. Under **Generate**, configure a sample sweep, add it to the plan, review it, and create demo jobs.
 5. Open **Jobs** and **Profiled data** to inspect job states, failures, hardware, parameters, and walltimes.
 6. Open **Build** and **Estimate** to follow the model-training and prediction stages.
 
-> **Screenshot slot — `docs/images/tutorial-offline-overview.png`:** Show the offline demo after login with the Generate, Build, and Estimate navigation visible. Replace this callout with an image when the screenshot is available.
+![Offline HARP demo after login with Generate, Build, and Estimate navigation](docs/images/tutorial-offline-overview.png)
 
 ### Expected result
 
@@ -95,13 +95,9 @@ You can navigate the complete HARP workflow and interact with sample data withou
 3. Confirm that the page shows the applications and systems available to your Tapis identity.
 4. If HARP is enabled in your TapisUI deployment, you may instead sign in to TapisUI and open the **HARP** service. The embedded service receives the portal session automatically and should not show a second login screen.
 
-> **Screenshot slot — `docs/images/tutorial-hosted-service.png`:** Show HARP's first authenticated screen with the username visible but all private paths, allocation names, and tokens removed.
-
-> **Screenshot slot — `docs/images/tutorial-tapisui-service.png`:** After the TapisUI integration is merged, show where HARP appears in the Services navigation and the embedded page without a second login prompt.
-
 ### Expected result
 
-The **Generate** page loads with the applications and execution systems visible to your Tapis identity. Seeing a system or queue means it is configured in Tapis; it does not guarantee that the remote scheduler partition is currently active.
+The **Generate** page loads with the applications and execution systems visible to your Tapis identity. Seeing a system or queue means it is configured in Tapis; it does not guarantee that the remote scheduler partition is currently active. A queue marked **UNCHECKED** has no configured live scheduler validator; it is not waiting on a check.
 
 ## Run HARP UI on your computer
 
@@ -136,7 +132,7 @@ python -m uvicorn harp_server.app:app --host 127.0.0.1 --port 8000
 
 Keep the computer awake while sweeps run. On macOS, use `caffeinate -i ./harp_server/scripts/run_local.sh`. If the computer sleeps or the server stops, jobs already accepted by Tapis keep running; start HARP again and log in to resume tracking them.
 
-> **Screenshot slot — `docs/images/tutorial-local-login.png`:** Show the local HARP login form at `http://localhost:8000` with an empty token field.
+![Local HARP login form with an empty Tapis access-token field](docs/images/tutorial-local-login.png)
 
 ### Expected result
 
@@ -158,8 +154,8 @@ Red rectangles in the tutorial images identify the control or result used in tha
 
 ### Stage 1: Generate profiling data
 
-1. Open **HARP Generate → Configure**, select the profiling app, and wait for system and partition badges to change from **CHECKING** to **AVAILABLE** or **UNAVAILABLE**. Leave **Show unavailable** off while choosing targets.
-2. Configure an `SD` sweep. Give the varying parameter the list `1, 2`, keep one repetition, and select two available Ascend partitions plus one available Cardinal partition. Enter `-A PAS2271` in the scheduler-options field for both systems. Each HARP job requests one node; cores, memory, and time are per-node requests, not the displayed queue maxima.
+1. Open **HARP Generate → Configure** and select the profiling app. System-access badges initially show **CHECKING** while HARP performs a read-only Tapis Files check. OSC queue badges use the live Slurm probe to become **AVAILABLE** or **UNAVAILABLE**; queues without a configured live scheduler validator show **UNCHECKED**. Select only **AVAILABLE** queues for this tutorial, and leave **Show unavailable** off while choosing targets.
+2. Configure a scaled-down (`SD`) sweep. Give the varying parameter the list `1, 2`, keep one repetition, and select two available Ascend partitions plus one available Cardinal partition. Enter `-A PAS2271` in the scheduler-options field for both systems. Each HARP job requests one node; cores, memory, and time are per-node requests, not the displayed queue maxima.
 
    ![HARP Generate configured for an SD sweep with epochs 1 and 2](docs/images/tutorial-generate-configure-sd-annotated.png)
 
@@ -168,7 +164,7 @@ Red rectangles in the tutorial images identify the control or result used in tha
    ![One selected Cardinal partition and the approved Cardinal scheduler allocation](docs/images/tutorial-generate-targets-sd-cardinal-annotated.png)
 
 3. Select **Add to plan**. If HARP warns that a selected system is missing an allocation, go back and fill it in instead of continuing.
-4. Change the run type and name to create an `FS` sweep with the same parameter values and three profiling targets, then add it to the plan.
+4. Change the run type and name to create a full-scale (`FS`) sweep with the same parameter values and three profiling targets, then add it to the plan.
 5. Create a `test_data` sweep with the same values but select only one other available Ascend or Cardinal partition. Add it to the plan. Held-out test rows score the trained models and are never used for fitting.
 
    ![The Generate plan containing SD, FS, and test_data sweeps](docs/images/tutorial-generate-plan-three-sweeps-annotated.png)
@@ -177,7 +173,7 @@ Red rectangles in the tutorial images identify the control or result used in tha
 
    ![The ready three-sweep plan on Review and submit](docs/images/tutorial-generate-review-annotated.png)
 
-7. Open **Jobs**. HARP and Tapis move jobs through pre-submission, scheduler, execution, and archiving states. The page polls while work is active; a successful status response replaces transient connection errors from an earlier poll.
+7. Open step 3, **Jobs**, immediately after submission. HARP and Tapis move jobs through pre-submission, scheduler, execution, and archiving states. The page polls while work is active; a successful status response replaces transient connection errors from an earlier poll.
 
    ![Profiling jobs moving through active Tapis states](docs/images/tutorial-generate-jobs-running-annotated.png)
 
@@ -185,7 +181,7 @@ Red rectangles in the tutorial images identify the control or result used in tha
 
    ![Tutorial sweep summaries after polling reaches terminal states](docs/images/tutorial-generate-jobs-finished-annotated.png)
 
-9. Open **Profiled data** and verify that SD, FS, and test_data rows are present.
+9. Open step 4, **Profiled data**, and verify that SD, FS, and test_data rows are present. This page reports only successfully collected rows, so its counts can be lower than the number of submitted jobs when a sweep has errors.
 
    ![Profiled-data metrics split by run type and hardware](docs/images/tutorial-generate-profiled-data-annotated.png)
 
@@ -261,8 +257,6 @@ Every profiling job currently sends `nodeCount=1`. **Cores requested** maps to T
 
 For a first test, choose a system you already use successfully through Tapis, select a development or debug queue when appropriate, and request conservative resources.
 
-> **Screenshot slot — `docs/images/howto-system-queue-status.png`:** Show system access/status indicators and configured queues. Include one usable and one unavailable example without exposing account details.
-
 ## Troubleshoot a failed Tapis job
 
 Open **HARP Generate → Jobs**, expand **Failure details**, and locate the failed Tapis job. Preserve the job ID, selected system and queue, classified reason, Tapis condition, and raw message when asking an administrator for help.
@@ -283,15 +277,11 @@ Open **HARP Generate → Jobs**, expand **Failure details**, and locate the fail
 
 The Jobs table uses short summaries such as **Tapis configuration issue**, **partition unavailable**, or **GPU/QOS request rejected**. The full Tapis and scheduler text remains under the expandable raw failure detail. A later successful status poll clears a transient connection error instead of leaving a completed job marked with the old polling failure.
 
-> **Screenshot slot — `docs/images/howto-failure-details.png`:** Show the failure summary cards and one expanded raw message. Sanitize usernames, paths, job IDs, and allocations if the screenshot will be public.
-
 ## Find job output and profiling results
 
 Each profiling job writes its live output under the Tapis job output directory. Tapis archives the job output into the campaign folder selected on **Review & submit**. HARP then merges successful profiling rows into the campaign CSV used by **Profiled data** and **HARP Build**.
 
 Use the Jobs page for the Tapis job ID and status, the Profiled data page for successful timing rows, and the selected results folder for archived files such as `tapisjob.out`, progress and summary JSON, and profiling CSV data.
-
-> **Screenshot slot — `docs/images/howto-results-location.png`:** Show the submitted campaign's results location and the corresponding Profiled data view. Use a non-sensitive example path.
 
 ## Recover after a token expires or HARP restarts
 
@@ -301,8 +291,6 @@ Jobs already accepted by Tapis continue running even when HARP loses its session
 2. Sign in with a current Tapis session.
 3. Open **Jobs** and confirm the sweep resumes updating.
 4. If the remote job already ended, allow HARP time to retrieve its final state and merge available results.
-
-> **Screenshot slot — `docs/images/howto-resume-session.png`:** Show a paused or waiting-for-login sweep and the same sweep updating after login.
 
 ## Package your application for sweeps
 
@@ -315,8 +303,6 @@ Jobs already accepted by Tapis continue running even when HARP loses its session
 2. Register (or update) the Tapis app with [`Notebooks/Create_HARP_Sweep_App_TAPIS.ipynb`](Notebooks/Create_HARP_Sweep_App_TAPIS.ipynb). It can also run one small test job.
 
 Inside each job, [`job_runner/harp_job_runner.py`](job_runner/harp_job_runner.py) runs its parameter combinations x repetitions, measures walltime and hardware, and writes `harp_profile.csv` and `harp_progress.json` to the Tapis output directory.
-
-> **Screenshot slot — `docs/images/howto-register-sweep-app.png`:** Show the created Tapis app's image, runtime, command metadata, and `notes.harp` parameter definition. Do not include credentials.
 
 ## Register the build app (Tapis model training)
 
@@ -333,16 +319,17 @@ cd harp_server
 HARP_SSL_CERT=certs/cert.pem HARP_SSL_KEY=certs/key.pem python3 -m harp_server.serve
 ```
 
-Open `https://<server-hostname>:8443`. For real use, point `HARP_SSL_CERT` / `HARP_SSL_KEY` at an institutional or Let's Encrypt certificate. Behind nginx, Caddy or Apache, run `HARP_BEHIND_PROXY=1 HARP_PORT=8000 python3 -m harp_server.serve` and forward with an `X-Forwarded-Proto` header.
+Open `https://<server-hostname>:8443`. For real use, point `HARP_SSL_CERT` / `HARP_SSL_KEY` at an institutional or Let's Encrypt certificate. Behind nginx, Caddy or Apache, run `HARP_BEHIND_PROXY=1 HARP_PROXY_IPS=<proxy-ip-or-cidr> HARP_PORT=8000 python3 -m harp_server.serve` and forward with an `X-Forwarded-Proto` header.
 
 | Variable | Purpose | Default |
 |---|---|---|
 | `HARP_SSL_CERT`, `HARP_SSL_KEY` | Certificate and key (PEM) | required unless behind a proxy |
 | `HARP_HOST`, `HARP_PORT` | Listen address | `0.0.0.0:8443` |
 | `HARP_BEHIND_PROXY` | Serve plain HTTP and trust the proxy's forwarded headers | off |
+| `HARP_PROXY_IPS` | Exact proxy IP/CIDR allowed to supply forwarded HTTPS headers | `127.0.0.1` |
 | `HARP_SERVER_DATA` | Campaign and build state directory | `~/.harp_server` |
 | `HARP_POLL_SECONDS` | Tapis polling interval | `15` |
-| `HARP_TAPIS_BASE_URL` | Tenant used to validate tokens | `https://icicleai.tapis.io` |
+| `HARP_TAPIS_BASE_URL` | Default tenant for TapisUI token handoff; login accepts HTTPS `*.tapis.io` tenants | `https://icicleai.tapis.io` |
 | `HARP_PORTAL_ORIGINS` | Exact TapisUI origins allowed to frame HARP and hand off tokens | unset (framing disabled) |
 | `HARP_SESSION_SAME_SITE` | Session cookie policy (`strict`, `lax`, `none`; `none` for the iframe) | |
 | `HARP_ALLOW_HTTP` | Accept logins over plain HTTP (never on a shared server) | off |
@@ -371,8 +358,6 @@ Full steps, portal settings and operational constraints (run a single replica) a
 
 When configured, HARP runs `sinfo` on Ascend, Pitzer, and Cardinal at Pod startup and once every 24 hours. A successful snapshot remains usable for up to 48 hours, allowing one temporary probe failure without immediately hiding queue validation. Live Slurm output—not OSC's documentation—is used to validate each TAPIS `hpcQueueName`. The probe requires a dedicated Pod-mounted SSH identity and invokes only this fixed read-only command; HARP cannot derive SSH credentials from a TAPIS access token and never persists that token.
 
-> **Screenshot slot — `docs/images/howto-pod-deployment.png`:** Show the HARP Pod or template in the Tapis Pods interface with a healthy status and the approved image reference. Redact tenant administration details.
-
 ## Run the tests
 
 ```bash
@@ -392,8 +377,6 @@ After changing [`profiling.html`](profiling.html), regenerate the demo copy with
 ## Why HARP
 
 Each HPC workflow has its own compute, memory and I/O profile, and users routinely over- or under-request resources because they lack a history of runs to go by. HARP generates that history systematically, with many "scaled-down" (SD) runs, a few selective "full-scale" (FS) runs and held-out test_data runs, then trains regression models to estimate runtime for a target application on a given system and queue.
-
-> **Diagram slot — `docs/images/explanation-harp-pipeline.png`:** Show the current Generate → Build → Estimate data flow, including Tapis Systems, Apps, Jobs, Files, campaign storage, profiling CSVs, model artifacts, and estimates. Replace this callout with the maintained architecture diagram.
 
 ## From notebooks to the UI
 
@@ -415,7 +398,7 @@ Earlier versions ran the whole Cheetah campaign inside **one** container, so one
 
 | Tab | Steps |
 |---|---|
-| **HARP Generate** | Configure sweeps → Review & submit → Profiled data → Jobs |
+| **HARP Generate** | Configure sweeps → Review & submit → Jobs → Profiled data |
 | **HARP Build** | Training data → Models & where → Trained models |
 | **HARP Estimate** | Configure → Select model → Estimates |
 

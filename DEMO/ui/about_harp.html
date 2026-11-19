@@ -415,7 +415,7 @@ const PH = [
    where: '<b>Version 2:</b> HARP Generate tab. Configure, Review & submit, Profiled data, Jobs. Each combination × configuration is one TAPIS job.'},
   {in: ['Profiling data from one or more sweeps', 'Which models to train', 'Which mixes of SD and FS to train on'],
    does: ['Cleans the data: drops gaps, removes outliers', 'Scales the features and reduces them with PCA', 'Trains linear regression, a neural network and a decision tree', 'Scores each on the held-out test_data runs'],
-   out: ['Trained models (.pkl, .h5)', 'Scores: average error, how often too low', '<code>model_commons.csv</code>'],
+   out: ['Trained models (.skops, .keras)', 'Scores: average error, how often too low', '<code>model_commons.csv</code>'],
    where: '<b>Version 2:</b> HARP Build tab. Training data, Models & where, Trained models. Runs as its own TAPIS job (HARP build app) or on the server.'},
   {in: ['A run you want to submit: one value per parameter', 'The queue and cores it would get', 'A trained model for that app'],
    does: ['Prepares the run the same way the training data was prepared', 'Asks the chosen model for the time', 'Optionally pads it so it is too low less often'],

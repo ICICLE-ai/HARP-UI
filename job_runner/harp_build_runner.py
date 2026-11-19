@@ -25,6 +25,7 @@ TAPIS output folder, which TAPIS archives to the storage folder you chose:
 
 import argparse
 import base64
+import hashlib
 import json
 import os
 import shutil
@@ -80,6 +81,18 @@ def write_json(path, data):
     os.replace(tmp, path)
 
 
+def artifact_manifest(out, files):
+    manifest = {}
+    for rel in files:
+        path = os.path.join(out, rel)
+        digest = hashlib.sha256()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                digest.update(chunk)
+        manifest[rel] = {"sha256": digest.hexdigest(), "size": os.path.getsize(path)}
+    return manifest
+
+
 def run(spec, input_csv, out):
     name, dataset_file = spec["name"], spec["dataset_file"]
     progress = {"step": None, "steps": {s: "waiting" for s in STEPS}, "updated_at": None}
@@ -125,7 +138,8 @@ def run(spec, input_csv, out):
         os.makedirs(os.path.join(out, "models"), exist_ok=True)
         for src, rel in outputs:
             shutil.copy(src, os.path.join(out, rel))
-        summary.update(ok=True, files=[rel for _, rel in outputs])
+        files = [rel for _, rel in outputs]
+        summary.update(ok=True, files=files, artifact_manifest=artifact_manifest(out, files))
     except RuntimeError as e:
         summary["error"] = str(e)
     finally:

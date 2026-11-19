@@ -1,7 +1,7 @@
 {
   "template_id": "harp",
-  "tag": "2.0.0-icicle.1",
-  "commit_message": "HARP 2.0.0 using the ICICLE-owned image",
+  "tag": "2.0.0-icicle.2",
+  "commit_message": "HARP 2.0.0 with restricted ICICLE ingress trust",
   "pod_definition": {
     "image": "ghcr.io/icicle-ai/harp-ui:2.0.0",
     "description": "HARP HPC Application Runtime Predictor",
@@ -9,7 +9,7 @@
       "HARP_BEHIND_PROXY": "1",
       "HARP_HOST": "0.0.0.0",
       "HARP_PORT": "8000",
-      "HARP_PROXY_IPS": "*",
+      "HARP_PROXY_IPS": "10.233.98.5",
       "HARP_SERVER_DATA": "/var/lib/harp",
       "HARP_TAPIS_BASE_URL": "https://icicleai.tapis.io",
       "HARP_PORTAL_ORIGINS": "https://icicleai.tapis.io",
@@ -55,4 +55,3 @@
     "compute_queue": "default"
   }
 }
-

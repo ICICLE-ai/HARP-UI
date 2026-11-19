@@ -16,9 +16,12 @@ Build phase from the profiling page: pool -> standardize -> build.
 
 import base64
 import csv
+import hashlib
+import hmac
 import io
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -44,10 +47,64 @@ TRAINING_SETS = {"SD": "SD only", "SD+25FS": "SD + 25% of FS", "SD+50FS": "SD + 
 SUMMARY_FILE_NAME = "harp_build_summary.json"
 PROGRESS_FILE_NAME = "harp_progress.json"
 DONE_JOB = ("FINISHED", "FAILED", "CANCELLED")
+MODEL_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.+-]{0,199}$")
 
 
 def _now():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _sha256(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _artifact_path(root, rel):
+    if not isinstance(rel, str) or not rel or "\\" in rel or rel.startswith("/"):
+        raise RuntimeError("build artifact path is invalid")
+    parts = rel.split("/")
+    if any(part in ("", ".", "..") for part in parts):
+        raise RuntimeError("build artifact path is invalid")
+    root = os.path.realpath(root)
+    path = os.path.realpath(os.path.join(root, *parts))
+    if os.path.commonpath((root, path)) != root:
+        raise RuntimeError("build artifact path escapes its build directory")
+    return path
+
+
+def _validate_manifest(files, manifest):
+    if not isinstance(manifest, dict):
+        raise RuntimeError("build did not produce artifact fingerprints")
+    for rel in files:
+        _artifact_path(".", rel)
+        entry = manifest.get(rel)
+        if (not isinstance(entry, dict) or not re.fullmatch(r"[0-9a-f]{64}", str(entry.get("sha256", "")))
+                or not isinstance(entry.get("size"), int) or entry["size"] < 0):
+            raise RuntimeError(f"build produced an invalid artifact fingerprint: {rel}")
+    return manifest
+
+
+def _verified_artifact(path, rel, manifest):
+    expected = (manifest or {}).get(rel)
+    if not isinstance(expected, dict) or not isinstance(expected.get("sha256"), str):
+        raise RuntimeError("this build has no trusted artifact fingerprint; rebuild it before estimating")
+    if expected.get("size") != os.path.getsize(path) or not hmac.compare_digest(_sha256(path), expected["sha256"]):
+        raise RuntimeError(f"saved build artifact failed its integrity check: {rel}")
+    try:
+        os.chmod(path, 0o444)
+    except OSError:
+        pass
+
+
+def _inference_environment():
+    """Do not pass credentials from the web server into the inference child."""
+    blocked = ("TOKEN", "SECRET", "PASSWORD", "CREDENTIAL", "API_KEY", "ACCESS_KEY", "PRIVATE_KEY")
+    env = {k: v for k, v in os.environ.items() if not any(word in k.upper() for word in blocked)}
+    env.update(TF_CPP_MIN_LOG_LEVEL="3")
+    return env
 
 
 def build_name(label):
@@ -177,18 +234,25 @@ class BuildManager:
             raise ValueError("the selected model is not part of this build")
         if not rows or len(rows) > 500:
             raise ValueError("estimate between 1 and 500 runs at a time")
+        if not MODEL_NAME_RE.fullmatch(model_name):
+            raise ValueError("the selected model name is invalid")
 
-        model_ext = ".h5" if metric["RegModel"] == "NN" else ".pkl"
+        model_ext = ".keras" if metric["RegModel"] == "NN" else ".skops"
         needed = [b["dataset_file"], "full_dataset_pca.csv", f"models/{model_name}{model_ext}"]
+        for rel in needed:
+            _artifact_path(".", rel)  # Reject absolute, parent, and platform-specific paths before any download.
+        manifest = b.get("artifact_manifest")
         local_out = os.path.join(self.dir, b["id"], "out")
         with tempfile.TemporaryDirectory(prefix="harp-estimate-") as temp:
-            artifacts = local_out if all(os.path.isfile(os.path.join(local_out, p)) for p in needed) else temp
+            artifacts = local_out if all(os.path.isfile(_artifact_path(local_out, p)) for p in needed) else temp
             if artifacts == temp:
                 for rel in needed:
-                    path = os.path.join(temp, rel)
+                    path = _artifact_path(temp, rel)
                     os.makedirs(os.path.dirname(path), exist_ok=True)
                     with open(path, "wb") as f:
                         f.write(gateway.download(b["storage"]["system_id"], f"{b['dest']}/{rel}"))
+            for rel in needed:
+                _verified_artifact(_artifact_path(artifacts, rel), rel, manifest)
             request = {"dataset_file": b["dataset_file"], "model_name": model_name,
                        "model_type": metric["RegModel"], "adjust_factor": metric.get("ADJ_FACTOR") or 1,
                        "rows": rows}
@@ -198,7 +262,8 @@ class BuildManager:
             try:
                 proc = subprocess.run([self.python, ESTIMATE_RUNNER, "--artifacts", artifacts,
                                        "--request", request_path, "--output", output_path],
-                                      capture_output=True, text=True, timeout=180)
+                                      capture_output=True, text=True, timeout=180, stdin=subprocess.DEVNULL,
+                                      cwd=temp, env=_inference_environment(), start_new_session=True)
             except subprocess.TimeoutExpired as e:
                 raise RuntimeError("prediction took longer than 3 minutes") from e
             try:
@@ -226,7 +291,8 @@ class BuildManager:
              "dest": f"{storage['path'].rstrip('/')}/builds/{name}_{stamp}",
              "dataset_file": f"{name}_{stamp}.csv", "status": "QUEUED", "step": "preprocess",
              "steps": {"pool": "done", "standardize": "done", "preprocess": "waiting", "train": "waiting", "save": "waiting"},
-             "job": None, "metrics": [], "best": None, "files": [], "log": [], "error": None, "ended_at": None}
+             "job": None, "metrics": [], "best": None, "files": [], "artifact_manifest": None,
+             "log": [], "error": None, "ended_at": None}
         work = os.path.join(self.dir, b["id"])
         os.makedirs(work, exist_ok=True)
         data = to_csv(header, table)
@@ -314,9 +380,15 @@ class BuildManager:
         except (TapisError, ValueError):
             summary = {"ok": False, "error": f"the TAPIS job ended {status} without a build summary"}
         if summary.get("ok"):
+            try:
+                manifest = _validate_manifest(summary.get("files", []), summary.get("artifact_manifest"))
+            except RuntimeError as e:
+                b.update(status="FAILED", error=str(e))
+                return
             b["metrics"] = parse_metrics(gw.download(sys_id, f"{dest}/model_commons.csv").decode())
             b["best"] = best_of(b["metrics"])
             b["files"] = summary.get("files", [])
+            b["artifact_manifest"] = manifest
             b["steps"].update(preprocess="done", train="done", save="done")
             b["status"] = "DONE"
         else:
@@ -345,9 +417,11 @@ class BuildManager:
                     summary = {"ok": False, "error": (b["log"] or ["the build runner did not start"])[-1]}
                 if not summary.get("ok"):
                     raise RuntimeError(summary.get("error") or "build failed")
+                manifest = _validate_manifest(summary.get("files", []), summary.get("artifact_manifest"))
                 with open(os.path.join(out, "model_commons.csv")) as f:
                     b["metrics"] = parse_metrics(f.read())
                 b["best"] = best_of(b["metrics"])
+                b["artifact_manifest"] = manifest
                 b["step"], b["steps"]["save"] = "save", "running"
                 self._save(b)
                 b["files"] = self._upload(b, gateway, out, summary["files"])

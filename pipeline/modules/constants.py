@@ -17,9 +17,9 @@ APPLICATION_CONFIG_FILE_NAME = "config.json"
 
 MODEL_COMMONS_FILE_NAME = "model_commons.csv"
 
-LINEAR_REGRESSION_MODEL_NAME = "lr_model_datetime.pkl"
-DNN_MODEL_NAME = "dnn_model_datetime.hdf5"
-DECISION_TREE_REGRESSOR_MODEL_NAME = "dtr_model_datetime.pkl"
+LINEAR_REGRESSION_MODEL_NAME = "lr_model_datetime.skops"
+DNN_MODEL_NAME = "dnn_model_datetime.keras"
+DECISION_TREE_REGRESSOR_MODEL_NAME = "dtr_model_datetime.skops"
 
 
 LOSS_FUNCTION = "MSE"
