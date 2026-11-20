@@ -250,7 +250,9 @@ def create_resources(
             "/run/harp-secrets/id_ed25519": {
                 "type": "ephemeral",
                 "config_content": "${pods:secrets:OSC_SSH_KEY}",
-                "config_permissions": "0600",
+                # Tapis mounts ephemeral config files as root:root and does not
+                # expose an owner setting. HARP stages a process-owned 0600 copy.
+                "config_permissions": "0444",
             },
             "/run/harp-secrets/known_hosts": {
                 "type": "ephemeral",
