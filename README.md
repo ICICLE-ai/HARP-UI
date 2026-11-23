@@ -38,9 +38,9 @@ Choose the path that matches what you want to do:
 
 | Goal | Recommended path | Tapis or HPC access required? |
 |---|---|---|
-| Explore the interface without submitting jobs | [Try the offline demo](#tutorial-explore-harp-without-tapis) | No |
-| Profile an application on an HPC system | [Run your first profiling sweep](#tutorial-run-your-first-profiling-sweep) | Yes |
-| Develop or test HARP UI locally | [Run HARP UI on your computer](#tutorial-run-harp-ui-on-your-computer) | A token is needed for live Tapis data |
+| Explore the interface without submitting jobs | [Try the offline demo](#explore-harp-without-tapis) | No |
+| Profile an application on an HPC system | [Run your first profiling sweep](#generate-build-and-estimate-runtime) | Yes |
+| Develop or test HARP UI locally | [Run HARP UI on your computer](#run-harp-ui-on-your-computer) | A token is needed for live Tapis data |
 | Make an application available in HARP | [Package an application for sweeps](#package-your-application-for-sweeps) | Yes |
 | Deploy or update the hosted service | [Deploy as an ICICLE Tapis Pod](#deploy-as-an-icicle-tapis-pod-tapisui) | Tapis Pods administration |
 
